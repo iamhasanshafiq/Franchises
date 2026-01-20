@@ -1,36 +1,33 @@
 import axiosInstance from './axios.config';
 
+const API_BASE_URL = import.meta.env.VITE_FRANCHISE_URL || '';
+
 export const franchisesApi = {
-  getAll: async (page = 1, pageSize = 10, cityId = null) => {
-    const params = { page, page_size: pageSize };
-    if (cityId) params.city_id = cityId;
+  getAll: async (page = 1, limit = 10, cityId = null) => {
+    const params = { page, limit };
+    if (cityId) params.cityId = cityId;
     
-    const response = await axiosInstance.get('/franchise/api/franchises/', { params });
+    const response = await axiosInstance.get(`${API_BASE_URL}/franchises`, { params });
     return response.data;
   },
 
   getById: async (id) => {
-    const response = await axiosInstance.get(`/franchise/api/franchises/${id}/`);
+    const response = await axiosInstance.get(`${API_BASE_URL}/franchises/${id}`);
     return response.data;
   },
 
   create: async (data) => {
-    const response = await axiosInstance.post('/franchise/api/franchises/', data);
+    const response = await axiosInstance.post(`${API_BASE_URL}/franchises`, data);
     return response.data;
   },
 
   update: async (id, data) => {
-    const response = await axiosInstance.patch(`/franchise/api/franchises/${id}/`, data);
+    const response = await axiosInstance.patch(`${API_BASE_URL}/franchises/${id}`, data);
     return response.data;
   },
 
   terminate: async (id) => {
-    const response = await axiosInstance.patch(`/franchise/api/franchises/${id}/terminate/`);
-    return response.data;
-  },
-
-  activate: async (id) => {
-    const response = await axiosInstance.patch(`/franchise/api/franchises/${id}/activate/`);
+    const response = await axiosInstance.delete(`${API_BASE_URL}/franchises/${id}`);
     return response.data;
   },
 };

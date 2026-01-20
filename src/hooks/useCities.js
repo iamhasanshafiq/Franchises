@@ -22,14 +22,14 @@ export const useCities = () => {
       const response = await citiesApi.getAll(page, limit);
       const data = response.data || response;
       setCities(data.items || []);
-      setPagination({
+      setPagination((prev) => ({
         page: data.pagination?.page || page,
         limit: data.pagination?.limit || limit,
         total: data.pagination?.total || 0,
         totalPages: data.pagination?.totalPages || 0,
         hasNext: data.pagination?.hasNext || false,
         hasPrev: data.pagination?.hasPrev || false,
-      });
+      }));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch cities');
       toast({
