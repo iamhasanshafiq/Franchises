@@ -28,11 +28,12 @@ export const useStats = () => {
     }
   }, []);
 
-  const fetchFranchiseStats = useCallback(async (franchiseId) => {
+  const fetchFranchiseStats = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await statsApi.getFranchiseStats(franchiseId);
+      const response = await statsApi.getFranchiseStats();
+      // API returns: { status: "success", data: { franchiseId, franchise, city, role, riders } }
       const data = response.data || response;
       setStats(data);
       return data;

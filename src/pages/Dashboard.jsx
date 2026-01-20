@@ -29,9 +29,9 @@ const Dashboard = () => {
       fetchCities(1, 5); 
       fetchFranchises(1, 5);
     } else if (isFranchiseAdmin()) {
-      const franchiseId = user?.franchiseId || user?.franchise?.id || "ebbeee18-271f-45e6-8955-3e7ae25725bf";
+      const franchiseId = user?.franchiseId || user?.franchise?.id;
+      fetchFranchiseStats();
       if (franchiseId) {
-        fetchFranchiseStats(franchiseId);
         fetchRiders(1, 5, null, franchiseId); 
       }
     }
@@ -60,10 +60,11 @@ const Dashboard = () => {
   } : null;
 
   // Parse stats for franchise admin
+  // API returns: { status: "success", data: { franchiseId, franchise, city, role, riders: { total, applied, interviewed, approved, active, suspended, blocked } } }
   const franchiseStats = (isFranchiseAdmin() && stats) ? {
-    franchiseName: stats.franchiseName || user?.franchise?.name || 'Unknown',
-    cityName: stats.cityName || user?.city?.name || 'Unknown',
-    ridersByStatus: stats.ridersByStatus || {},
+    franchiseName: stats.franchise || user?.franchise?.name || 'Unknown',
+    cityName: stats.city || user?.city?.name || 'Unknown',
+    ridersByStatus: stats.riders || {},
   } : null;
 
   const adminCards = adminStats ? [

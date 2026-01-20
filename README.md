@@ -1,73 +1,152 @@
-# Welcome to your Lovable project
+# BarqiBazar C&F Portal
 
-## Project info
+A comprehensive admin management portal for managing cities, franchises, and riders across the BarqiBazar network.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Overview
 
-## How can I edit this code?
+BarqiBazar C&F Portal is a React-based admin dashboard built with modern technologies to efficiently manage:
+- **Cities** - Add, edit, and manage city operations
+- **Franchises** - oversee franchise locations and operations
+- **Franchise Admins** - manage administrative access
+- **Riders** - track rider applications, documents, and status
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- **React 18** with TypeScript
+- **Vite** - Fast build tool and dev server
+- **Tailwind CSS** - Utility-first CSS framework
+- **shadcn/ui** - Reusable UI components
+- **React Router v6** - Client-side routing
+- **React Query (TanStack)** - Server state management
+- **Axios** - HTTP client
+- **Zod** - Schema validation
+- **Recharts** - Data visualization
+- **Vitest** - Unit testing
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Project Structure
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+src/
+├── api/              # API configurations and endpoints
+├── components/       # React components
+│   ├── auth/         # Authentication components
+│   ├── common/       # Shared components (Header, Sidebar, DataTable, etc.)
+│   ├── dashboard/    # Dashboard widgets
+│   ├── layout/       # Layout wrappers
+│   └── ui/           # shadcn/ui component library
+├── contexts/         # React contexts (AuthContext)
+├── hooks/            # Custom React hooks
+├── pages/            # Page components
+├── utils/            # Utility functions
+└── test/             # Test files and setup
 ```
 
-**Edit a file directly in GitHub**
+## Getting Started
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Prerequisites
 
-**Use GitHub Codespaces**
+- Node.js 18+ 
+- npm or yarn
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Installation
 
-## What technologies are used for this project?
+```bash
+# Install dependencies
+npm install
 
-This project is built with:
+# Start development server
+npm run dev
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Build for production
+npm run build
 
-## How can I deploy this project?
+# Build for development (with source maps)
+npm run build:dev
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+# Run tests
+npm run test
 
-## Can I connect a custom domain to my Lovable project?
+# Run tests in watch mode
+npm run test:watch
 
-Yes, you can!
+# Preview production build
+npm run preview
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# Lint code
+npm run lint
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Features
+
+### Authentication
+- JWT-based authentication
+- Role-based access control (ADMIN, FRANCHISE_ADMIN)
+- Protected routes with session management
+
+### Dashboard
+- Overview statistics across all entities
+- Visual analytics with charts
+
+### City Management
+- Create, view, update, and deactivate cities
+- Pagination and filtering support
+
+### Franchise Management
+- Manage franchise locations
+- Track franchise status and capacity
+- Associate franchises with cities
+
+### Rider Management
+- Complete rider lifecycle management
+- Document handling (CNIC, license, insurance, etc.)
+- Status tracking (APPLIED → INTERVIEWED → APPROVED → ACTIVE → SUSPENDED → BLOCKED)
+- Rider history and audit trail
+
+### Document Management
+- Upload and verify rider documents
+- Document type validation
+- Version control through document replacement
+
+## API Integration
+
+The portal connects to a backend API with the following endpoints:
+
+| Resource | Base URL | Access |
+|----------|----------|--------|
+| Cities | `/api/cities` | ADMIN |
+| Franchises | `/api/franchises` | ADMIN |
+| Franchise Admins | `/api/franchise-admins` | ADMIN |
+| Riders | `/api/riders` | ADMIN, FRANCHISE_ADMIN |
+| Rider Documents | `/api/rider-docs` | ADMIN, FRANCHISE_ADMIN |
+| Statistics | `/api/stats` | ADMIN, FRANCHISE_ADMIN |
+
+All API requests require:
+```
+Authorization: Bearer <JWT>
+Content-Type: application/json
+```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run build:dev` | Build for development |
+| `npm run lint` | Lint codebase |
+| `npm run test` | Run tests |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run preview` | Preview production build |
+
+## Environment Variables
+
+Create a `.env` file based on `.env.example`:
+
+```
+VITE_API_URL=your_api_url
+```
+
+## License
+
+Proprietary - BarqiBazar
+

@@ -8,8 +8,8 @@ export const statsApi = {
     return response.data;
   },
 
-  getFranchiseStats: async (franchiseId) => {
-    const response = await axiosInstance.get(`${API_BASE_URL}/stats/franchise/${franchiseId}`);
+  getFranchiseStats: async () => {
+    const response = await axiosInstance.get(`${API_BASE_URL}/stats/my-franchise`);
     return response.data;
   },
 };
