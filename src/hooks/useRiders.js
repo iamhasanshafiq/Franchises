@@ -49,7 +49,8 @@ export const useRiders = () => {
     setError(null);
     try {
       const response = await ridersApi.getById(id);
-      const data = response.data || response;
+      // Response: { status: "success", data: { id, franchiseId, cityId, fullName, phone, email, vehicleType, status, appliedAt, approvedAt, activatedAt, createdAt, updatedAt, version, documents: [...] } }
+      const data = response.data?.data || response.data || response;
       setRider(data);
       return data;
     } catch (err) {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/common/Header';
@@ -9,7 +8,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Plus, Eye, Edit, Upload, FileText, X, Loader2 } from 'lucide-react';
+import { Plus, Eye, Upload, FileText, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useRiders } from '../hooks/useRiders';
 import { useFranchises } from '../hooks/useFranchises';
@@ -24,9 +23,7 @@ const Riders = () => {
   const { franchises, myFranchise, fetchFranchises, fetchMyFranchise } = useFranchises();
   const { cities, fetchCities } = useCities();
   const [modalOpen, setModalOpen] = useState(false);
-  const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
-  const [selectedRider, setSelectedRider] = useState(null);
-  const [formData, setFormData] = useState({ 
+  const [formData, setFormData] = useState({
     fullName: '', 
     phone: '', 
     vehicleType: 'BIKE',
@@ -73,28 +70,12 @@ const Riders = () => {
         <Button size="sm" variant="ghost" onClick={() => navigate(`/riders/${row.id}`)}>
           <Eye size={16} />
         </Button>
-        {isAdmin() && (
-          <>
-            <Button size="sm" variant="ghost" onClick={() => handleOpenDocuments(row)}>
-              <FileText size={16} />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => navigate(`/riders/${row.id}/edit`)}>
-              <Edit size={16} />
-            </Button>
-          </>
-        )}
       </div>
     )},
   ];
 
   const handlePageChange = (newPage) => {
     fetchRiders(newPage, pagination.limit);
-  };
-
-  const handleOpenDocuments = (rider) => {
-    setSelectedRider(rider);
-    setRiderDocuments(rider.documents || []);
-    setDocumentsModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
@@ -118,7 +99,6 @@ const Riders = () => {
       setFormLoading(false);
     }
   };
-
 
   const handleRemoveDocument = (docId) => {
     setRiderDocuments(riderDocuments.filter(doc => doc.id !== docId));
@@ -384,42 +364,9 @@ const Riders = () => {
           </div>
         </form>
       </Modal>
-
-      {/* View Documents Modal */}
-      <Modal isOpen={documentsModalOpen} onClose={() => setDocumentsModalOpen(false)} title={`Documents - ${selectedRider?.fullName || ''}`} size="lg">
-        <div className="space-y-4">
-          {riderDocuments.length > 0 ? (
-            <div className="space-y-3">
-              {riderDocuments.map((doc, index) => (
-                <div key={doc.id || index} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText size={20} className="text-primary" />
-                    <div>
-                      <p className="font-medium">{doc.documentType?.replace(/_/g, ' ')}</p>
-                      {doc.documentUrl && (
-                        <a href={doc.documentUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
-                          View Document
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  {doc.verified && (
-                    <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded">Verified</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-8">No documents uploaded</p>
-          )}
-          
-          <div className="flex justify-end pt-4">
-            <Button variant="outline" onClick={() => setDocumentsModalOpen(false)}>Close</Button>
-          </div>
-        </div>
-      </Modal>
     </DashboardLayout>
   );
 };
 
 export default Riders;
+

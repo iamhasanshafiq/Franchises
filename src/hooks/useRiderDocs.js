@@ -67,7 +67,6 @@ export const useRiderDocs = () => {
     setLoading(true);
     try {
       const response = await riderDocsApi.create(data);
-      await fetchDocuments(pagination.page, pagination.limit);
       toast({
         title: 'Success',
         description: 'Document created successfully',
@@ -113,7 +112,6 @@ export const useRiderDocs = () => {
     setLoading(true);
     try {
       const response = await riderDocsApi.delete(id);
-      await fetchDocuments(pagination.page, pagination.limit);
       toast({
         title: 'Success',
         description: 'Document deleted successfully',

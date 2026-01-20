@@ -30,9 +30,9 @@ const Franchises = () => {
   const columns = [
     { key: 'name', label: 'Franchise Name' },
     { key: 'code', label: 'Code' },
-    { key: 'cityName', label: 'City' },
+    // { key: 'cityName', label: 'City' },
     { key: 'maxActiveRiders', label: 'Max Riders' },
-    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
+    // { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
     { key: 'createdAt', label: 'Created', render: (val) => val ? new Date(val).toLocaleDateString() : '-' },
     {
       key: 'actions',
