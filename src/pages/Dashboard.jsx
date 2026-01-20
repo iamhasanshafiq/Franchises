@@ -19,28 +19,37 @@ const Dashboard = () => {
   const { franchises, fetchFranchises } = useFranchises();
   const { riders, fetchRiders } = useRiders();
   const [recentItems, setRecentItems] = useState([]);
+  console.log("Recent items: ", recentItems);
 
+
+  // Initial data fetch - only runs once on mount
   useEffect(() => {
     if (isAdmin()) {
       fetchAdminStats();
-      fetchCities(1, 5);
+      fetchCities(1, 5); 
       fetchFranchises(1, 5);
+    } else if (isFranchiseAdmin()) {
+      const franchiseId = user?.franchiseId || user?.franchise?.id || "ebbeee18-271f-45e6-8955-3e7ae25725bf";
+      if (franchiseId) {
+        fetchFranchiseStats(franchiseId);
+        fetchRiders(1, 5, null, franchiseId); 
+      }
+    }
+  }, [isAdmin, isFranchiseAdmin, user]);
+
+  // Update recentItems after data is fetched - this runs when cities, franchises, or riders change
+  useEffect(() => {
+    if (isAdmin()) {
       setRecentItems([
         { type: 'cities', title: 'Recent Cities', icon: Building2, color: 'primary', data: cities, href: '/cities', emptyMsg: 'No cities found' },
         { type: 'franchises', title: 'Recent Franchises', icon: Store, color: 'accent', data: franchises, href: '/franchises', emptyMsg: 'No franchises found' },
       ]);
     } else if (isFranchiseAdmin()) {
-
-      const franchiseId = user?.franchiseId || user?.franchise?.id || "ebbeee18-271f-45e6-8955-3e7ae25725bf";
-      if (franchiseId) {
-        fetchFranchiseStats(franchiseId);
-        fetchRiders(1, 5, null, franchiseId);
-        setRecentItems([
-          { type: 'riders', title: 'Recent Riders', icon: Bike, color: 'primary', data: riders, href: '/riders', emptyMsg: 'No riders found' },
-        ]);
-      }
+      setRecentItems([
+        { type: 'riders', title: 'Recent Riders', icon: Bike, color: 'primary', data: riders, href: '/riders', emptyMsg: 'No riders found' },
+      ]);
     }
-  }, [isAdmin, isFranchiseAdmin, user, fetchAdminStats, fetchFranchiseStats, fetchCities, fetchFranchises, fetchRiders]);
+  }, [isAdmin, isFranchiseAdmin, cities, franchises, riders]);
 
   // Parse stats for admin - API returns: { cities, franchises, franchiseAdmins, riders }
   const adminStats = isAdmin() && stats ? {
