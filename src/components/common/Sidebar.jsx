@@ -7,6 +7,7 @@ import {
   Building2,
   Store,
   Users,
+  UserCog,
   Bike,
   ChevronLeft,
   ChevronRight,
@@ -22,7 +23,7 @@ const Sidebar = () => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/cities', label: 'Cities', icon: Building2 },
     { path: '/franchises', label: 'Franchises', icon: Store },
-    { path: '/franchise-admins', label: 'Franchise Admins', icon: Users },
+    { path: '/franchise-admins', label: 'Franchise Admins', icon: UserCog },
     { path: '/riders', label: 'Riders', icon: Bike },
   ];
 

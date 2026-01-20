@@ -1,31 +1,28 @@
 import axiosInstance from './axios.config';
 
+const API_BASE_URL = import.meta.env.VITE_FRANCHISE_URL || '';
+
 export const franchiseAdminsApi = {
-  getAll: async (page = 1, pageSize = 10, franchiseId = null) => {
-    const params = { page, page_size: pageSize };
-    if (franchiseId) params.franchise_id = franchiseId;
+  getAll: async (page = 1, limit = 10, franchiseId = null) => {
+    const params = { page, limit };
+    if (franchiseId) params.franchiseId = franchiseId;
     
-    const response = await axiosInstance.get('/franchise/api/franchise-admins/', { params });
+    const response = await axiosInstance.get(`${API_BASE_URL}/franchise-admins`, { params });
     return response.data;
   },
 
   getById: async (id) => {
-    const response = await axiosInstance.get(`/franchise/api/franchise-admins/${id}/`);
+    const response = await axiosInstance.get(`${API_BASE_URL}/franchise-admins/${id}`);
     return response.data;
   },
 
   create: async (data) => {
-    const response = await axiosInstance.post('/franchise/api/franchise-admins/', data);
-    return response.data;
-  },
-
-  update: async (id, data) => {
-    const response = await axiosInstance.patch(`/franchise/api/franchise-admins/${id}/`, data);
+    const response = await axiosInstance.post(`${API_BASE_URL}/franchise-admins`, data);
     return response.data;
   },
 
   delete: async (id) => {
-    const response = await axiosInstance.delete(`/franchise/api/franchise-admins/${id}/`);
+    const response = await axiosInstance.delete(`${API_BASE_URL}/franchise-admins/${id}`);
     return response.data;
   },
 };
