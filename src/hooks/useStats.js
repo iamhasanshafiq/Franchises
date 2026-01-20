@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { statsApi } from '../api/stats.api';
+import { toast } from '../hooks/use-toast';
 
 export const useStats = () => {
   const [stats, setStats] = useState(null);
@@ -11,24 +12,37 @@ export const useStats = () => {
     setError(null);
     try {
       const response = await statsApi.getAdminStats();
-      setStats(response.data);
-      return response.data;
+      // API returns: { status, data: { cities, franchises, franchiseAdmins, riders } }
+      const data = response.data?.data || response.data || response;
+      setStats(data);
+      return data;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch stats');
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to fetch admin stats',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const fetchFranchiseStats = useCallback(async () => {
+  const fetchFranchiseStats = useCallback(async (franchiseId) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await statsApi.getFranchiseStats();
-      setStats(response.data);
-      return response.data;
+      const response = await statsApi.getFranchiseStats(franchiseId);
+      const data = response.data || response;
+      setStats(data);
+      return data;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch stats');
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to fetch franchise stats',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
