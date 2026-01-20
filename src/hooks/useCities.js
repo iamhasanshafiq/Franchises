@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { citiesApi } from '../api/cities.api';
+import { toast } from '../hooks/use-toast';
 
 export const useCities = () => {
   const [cities, setCities] = useState([]);
@@ -7,25 +8,31 @@ export const useCities = () => {
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
-    pageSize: 10,
+    limit: 10,
     total: 0,
     totalPages: 0,
   });
 
-  const fetchCities = useCallback(async (page = 1, pageSize = 10) => {
+  const fetchCities = useCallback(async (page = 1, limit = 10) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await citiesApi.getAll(page, pageSize);
-      setCities(response.data?.results || []);
+      const response = await citiesApi.getAll(page, limit);
+      const data = response.data || response;
+      setCities(data.items || []);
       setPagination({
-        page,
-        pageSize,
-        total: response.data?.count || 0,
-        totalPages: Math.ceil((response.data?.count || 0) / pageSize),
+        page: data.meta?.page || page,
+        limit: data.meta?.limit || limit,
+        total: data.meta?.total || 0,
+        totalPages: data.meta?.totalPages || 0,
       });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch cities');
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to fetch cities',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -35,10 +42,20 @@ export const useCities = () => {
     setLoading(true);
     try {
       const response = await citiesApi.create(data);
-      await fetchCities(pagination.page, pagination.pageSize);
+      await fetchCities(pagination.page, pagination.limit);
+      toast({
+        title: 'Success',
+        description: 'City created successfully',
+      });
       return response;
     } catch (err) {
-      throw err.response?.data?.message || 'Failed to create city';
+      const message = err.response?.data?.message || 'Failed to create city';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -48,10 +65,20 @@ export const useCities = () => {
     setLoading(true);
     try {
       const response = await citiesApi.update(id, data);
-      await fetchCities(pagination.page, pagination.pageSize);
+      await fetchCities(pagination.page, pagination.limit);
+      toast({
+        title: 'Success',
+        description: 'City updated successfully',
+      });
       return response;
     } catch (err) {
-      throw err.response?.data?.message || 'Failed to update city';
+      const message = err.response?.data?.message || 'Failed to update city';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -61,23 +88,20 @@ export const useCities = () => {
     setLoading(true);
     try {
       const response = await citiesApi.deactivate(id);
-      await fetchCities(pagination.page, pagination.pageSize);
+      await fetchCities(pagination.page, pagination.limit);
+      toast({
+        title: 'Success',
+        description: 'City deactivated successfully',
+      });
       return response;
     } catch (err) {
-      throw err.response?.data?.message || 'Failed to deactivate city';
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const activateCity = async (id) => {
-    setLoading(true);
-    try {
-      const response = await citiesApi.activate(id);
-      await fetchCities(pagination.page, pagination.pageSize);
-      return response;
-    } catch (err) {
-      throw err.response?.data?.message || 'Failed to activate city';
+      const message = err.response?.data?.message || 'Failed to deactivate city';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -92,6 +116,5 @@ export const useCities = () => {
     createCity,
     updateCity,
     deactivateCity,
-    activateCity,
   };
 };

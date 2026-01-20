@@ -8,26 +8,25 @@ import StatusBadge from '../components/common/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Plus, Edit, Power } from 'lucide-react';
-import { toast } from '../hooks/use-toast';
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import { useCities } from '../hooks/useCities';
 
 const Cities = () => {
-  const [cities, setCities] = useState([
-    { id: 1, name: 'Lahore', code: 'LHR', status: 'ACTIVE', created_at: '2024-01-15' },
-    { id: 2, name: 'Karachi', code: 'KHI', status: 'ACTIVE', created_at: '2024-01-10' },
-    { id: 3, name: 'Islamabad', code: 'ISB', status: 'INACTIVE', created_at: '2024-02-01' },
-  ]);
-  const [loading, setLoading] = useState(false);
+  const { cities, loading, pagination, fetchCities, createCity, updateCity, deactivateCity } = useCities();
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedCity, setSelectedCity] = useState(null);
   const [formData, setFormData] = useState({ name: '', code: '' });
+  const [formLoading, setFormLoading] = useState(false);
+
+  useEffect(() => {
+    fetchCities(pagination.page, pagination.limit);
+  }, [fetchCities, pagination.page, pagination.limit]);
 
   const columns = [
     { key: 'name', label: 'City Name' },
     { key: 'code', label: 'Code' },
     { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
-    { key: 'created_at', label: 'Created', render: (val) => new Date(val).toLocaleDateString() },
     {
       key: 'actions',
       label: 'Actions',
@@ -37,7 +36,7 @@ const Cities = () => {
             <Edit size={16} />
           </Button>
           <Button size="sm" variant="ghost" onClick={() => handleToggleStatus(row)}>
-            <Power size={16} />
+            <Trash2 size={16} />
           </Button>
         </div>
       ),
@@ -55,17 +54,39 @@ const Cities = () => {
     setConfirmOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast({ title: selectedCity ? 'City updated' : 'City created', description: `${formData.name} saved successfully` });
-    setModalOpen(false);
-    setFormData({ name: '', code: '' });
-    setSelectedCity(null);
+    setFormLoading(true);
+    try {
+      if (selectedCity) {
+        await updateCity(selectedCity.id, formData);
+      } else {
+        await createCity(formData);
+      }
+      setModalOpen(false);
+      setFormData({ name: '', code: '' });
+      setSelectedCity(null);
+    } catch (error) {
+      console.error('Error saving city:', error);
+    } finally {
+      setFormLoading(false);
+    }
   };
 
-  const handleConfirmToggle = () => {
-    toast({ title: 'Status updated', description: `${selectedCity.name} status changed` });
-    setConfirmOpen(false);
+  const handleConfirmToggle = async () => {
+    if (selectedCity) {
+      try {
+        await deactivateCity(selectedCity.id);
+      } catch (error) {
+        console.error('Error deactivating city:', error);
+      }
+      setConfirmOpen(false);
+      setSelectedCity(null);
+    }
+  };
+
+  const handlePageChange = (newPage) => {
+    fetchCities(newPage, pagination.limit);
   };
 
   return (
@@ -78,21 +99,33 @@ const Cities = () => {
             <Plus size={18} className="mr-2" /> Add City
           </Button>
         </div>
-        <DataTable columns={columns} data={cities} loading={loading} emptyMessage="No cities found" />
+        <DataTable 
+          columns={columns} 
+          data={cities} 
+          loading={loading} 
+          emptyMessage="No cities found"
+          pagination={{
+            page: pagination.page,
+            totalPages: pagination.totalPages,
+            onPageChange: handlePageChange
+          }}
+        />
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={selectedCity ? 'Edit City' : 'Add City'}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div><Label>City Name</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required /></div>
-          <div><Label>Code</Label><Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} required /></div>
+          <div><Label>City Name</Label><Input placeholder="Enter city name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required /></div>
+          <div><Label>Code</Label><Input placeholder="Enter city code (e.g. KHI)" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} required /></div>
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => setModalOpen(false)} className="flex-1">Cancel</Button>
-            <Button type="submit" className="flex-1">{selectedCity ? 'Update' : 'Create'}</Button>
+            <Button type="button" variant="outline" onClick={() => setModalOpen(false)} className="flex-1" disabled={formLoading}>Cancel</Button>
+            <Button type="submit" className="flex-1" disabled={formLoading}>
+              {formLoading ? 'Please wait...' : (selectedCity ? 'Update' : 'Create')}
+            </Button>
           </div>
         </form>
       </Modal>
 
-      <ConfirmDialog isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleConfirmToggle} title="Toggle Status" message={`Are you sure you want to ${selectedCity?.status === 'ACTIVE' ? 'deactivate' : 'activate'} ${selectedCity?.name}?`} />
+      <ConfirmDialog isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleConfirmToggle} title="Deactivate City" message={`Are you sure you want to deactivate ${selectedCity?.name}?`} />
     </DashboardLayout>
   );
 };
