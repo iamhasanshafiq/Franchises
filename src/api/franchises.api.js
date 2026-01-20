@@ -30,4 +30,9 @@ export const franchisesApi = {
     const response = await axiosInstance.delete(`${API_BASE_URL}/franchises/${id}`);
     return response.data;
   },
+
+  getMyFranchise: async () => {
+    const response = await axiosInstance.get(`${API_BASE_URL}/franchises/me`);
+    return response.data;
+  },
 };

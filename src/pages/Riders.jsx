@@ -21,7 +21,7 @@ const Riders = () => {
   const { isAdmin, isFranchiseAdmin } = useAuth();
   const navigate = useNavigate();
   const { riders, loading, pagination, fetchRiders, createRider } = useRiders();
-  const { franchises, fetchFranchises } = useFranchises();
+  const { franchises, myFranchise, fetchFranchises, fetchMyFranchise } = useFranchises();
   const { cities, fetchCities } = useCities();
   const [modalOpen, setModalOpen] = useState(false);
   const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
@@ -43,11 +43,24 @@ const Riders = () => {
 
   useEffect(() => {
     fetchRiders(pagination.page, pagination.limit);
-    if (isAdmin() || isFranchiseAdmin()) {
+    if (isAdmin()) {
       fetchCities(1, 100);
       fetchFranchises(1, 100);
+    } else if (isFranchiseAdmin()) {
+      fetchMyFranchise();
     }
-  }, [fetchRiders, pagination.page, pagination.limit, isAdmin, isFranchiseAdmin, fetchCities, fetchFranchises]);
+  }, [fetchRiders, pagination.page, pagination.limit, isAdmin, isFranchiseAdmin, fetchCities, fetchFranchises, fetchMyFranchise]);
+
+  // Auto-fill form data when myFranchise is loaded
+  useEffect(() => {
+    if (isFranchiseAdmin() && myFranchise) {
+      setFormData(prev => ({
+        ...prev,
+        franchiseId: myFranchise.id,
+        cityId: myFranchise.cityId,
+      }));
+    }
+  }, [isFranchiseAdmin, myFranchise]);
 
   const columns = [
     { key: 'fullName', label: 'Name', render: (_, row) => row.fullName || row.full_name || '-' },
@@ -192,44 +205,64 @@ const Riders = () => {
       {/* Add Rider Modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add Rider" size="lg">
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Franchise</Label>
-              <Select 
-                value={formData.franchiseId} 
-                onValueChange={(value) => setFormData({ ...formData, franchiseId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select franchise" />
-                </SelectTrigger>
-                <SelectContent>
-                  {franchises.map((franchise) => (
-                    <SelectItem key={franchise.id} value={franchise.id}>
-                      {franchise.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Franchise Admin: Show dedicated sections (read-only) */}
+          {isFranchiseAdmin() && myFranchise ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Franchise</Label>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="font-medium">{myFranchise.name}</p>
+                  <p className="text-xs text-muted-foreground">{myFranchise.code}</p>
+                </div>
+              </div>
+              <div>
+                <Label>City</Label>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="font-medium">{myFranchise.city?.name || '-'}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <Label>City</Label>
-              <Select 
-                value={formData.cityId} 
-                onValueChange={(value) => setFormData({ ...formData, cityId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select city" />
-                </SelectTrigger>
-                <SelectContent>
-                  {cities.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          ) : (
+            /* Admin: Show dropdowns for selection */
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Franchise</Label>
+                <Select 
+                  value={formData.franchiseId} 
+                  onValueChange={(value) => setFormData({ ...formData, franchiseId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select franchise" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {franchises.map((franchise) => (
+                      <SelectItem key={franchise.id} value={franchise.id}>
+                        {franchise.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>City</Label>
+                <Select 
+                  value={formData.cityId} 
+                  onValueChange={(value) => setFormData({ ...formData, cityId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cities.map((city) => (
+                      <SelectItem key={city.id} value={city.id}>
+                        {city.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
           
           <div>
             <Label>Full Name</Label>

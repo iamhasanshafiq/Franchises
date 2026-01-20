@@ -111,12 +111,37 @@ export const useFranchises = () => {
     }
   };
 
+  const [myFranchise, setMyFranchise] = useState(null);
+
+  const fetchMyFranchise = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await franchisesApi.getMyFranchise();
+      const data = response.data || response;
+      // Response: { status: "success", data: { items: [{ id, cityId, name, code, city: { id, name, ... } }] } }
+      setMyFranchise(data.items?.[0] || null);
+      return data.items?.[0] || null;
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch my franchise');
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to fetch my franchise',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     franchises,
+    myFranchise,
     loading,
     error,
     pagination,
     fetchFranchises,
+    fetchMyFranchise,
     createFranchise,
     updateFranchise,
     terminateFranchise,
