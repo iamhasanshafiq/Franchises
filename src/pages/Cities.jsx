@@ -27,6 +27,7 @@ const Cities = () => {
     { key: 'name', label: 'City Name' },
     { key: 'code', label: 'Code' },
     { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
+    { key: 'createdAt', label: 'Created', render: (val) => val ? new Date(val).toLocaleDateString() : '-' },
     {
       key: 'actions',
       label: 'Actions',
@@ -107,9 +108,17 @@ const Cities = () => {
           pagination={{
             page: pagination.page,
             totalPages: pagination.totalPages,
+            hasNext: pagination.hasNext,
+            hasPrev: pagination.hasPrev,
             onPageChange: handlePageChange
           }}
         />
+        
+        {cities.length > 0 && (
+          <div className="text-sm text-muted-foreground text-center">
+            Showing {cities.length} of {pagination.total} cities
+          </div>
+        )}
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={selectedCity ? 'Edit City' : 'Add City'}>

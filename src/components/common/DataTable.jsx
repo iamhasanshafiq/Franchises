@@ -66,7 +66,7 @@ const DataTable = ({
         </Table>
       </div>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && (pagination.totalPages > 1 || pagination.hasNext || pagination.hasPrev) && (
         <Pagination
           currentPage={pagination.page}
           totalPages={pagination.totalPages}

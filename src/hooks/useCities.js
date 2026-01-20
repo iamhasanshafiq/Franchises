@@ -11,6 +11,8 @@ export const useCities = () => {
     limit: 10,
     total: 0,
     totalPages: 0,
+    hasNext: false,
+    hasPrev: false,
   });
 
   const fetchCities = useCallback(async (page = 1, limit = 10) => {
@@ -21,10 +23,12 @@ export const useCities = () => {
       const data = response.data || response;
       setCities(data.items || []);
       setPagination({
-        page: data.meta?.page || page,
-        limit: data.meta?.limit || limit,
-        total: data.meta?.total || 0,
-        totalPages: data.meta?.totalPages || 0,
+        page: data.pagination?.page || page,
+        limit: data.pagination?.limit || limit,
+        total: data.pagination?.total || 0,
+        totalPages: data.pagination?.totalPages || 0,
+        hasNext: data.pagination?.hasNext || false,
+        hasPrev: data.pagination?.hasPrev || false,
       });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch cities');
