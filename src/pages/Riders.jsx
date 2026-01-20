@@ -73,7 +73,7 @@ const Riders = () => {
         <Button size="sm" variant="ghost" onClick={() => navigate(`/riders/${row.id}`)}>
           <Eye size={16} />
         </Button>
-        {(isFranchiseAdmin() || isAdmin()) && (
+        {isAdmin() && (
           <>
             <Button size="sm" variant="ghost" onClick={() => handleOpenDocuments(row)}>
               <FileText size={16} />
