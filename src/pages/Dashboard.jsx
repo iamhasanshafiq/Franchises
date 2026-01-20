@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -8,26 +8,39 @@ import { Building2, Store, Bike, Users, TrendingUp, CheckCircle } from 'lucide-r
 import { useStats } from '../hooks/useStats';
 import { useCities } from '../hooks/useCities';
 import { useFranchises } from '../hooks/useFranchises';
+import { useRiders } from '../hooks/useRiders';
 import StatusBadge from '../components/common/StatusBadge';
 
 const Dashboard = () => {
   const { user, isAdmin, isFranchiseAdmin } = useAuth();
+
   const { stats, loading, error, fetchAdminStats, fetchFranchiseStats } = useStats();
   const { cities, fetchCities } = useCities();
   const { franchises, fetchFranchises } = useFranchises();
+  const { riders, fetchRiders } = useRiders();
+  const [recentItems, setRecentItems] = useState([]);
 
   useEffect(() => {
     if (isAdmin()) {
       fetchAdminStats();
-      fetchCities(1, 5); // Get 5 recent cities
-      fetchFranchises(1, 5); // Get 5 recent franchises
+      fetchCities(1, 5);
+      fetchFranchises(1, 5);
+      setRecentItems([
+        { type: 'cities', title: 'Recent Cities', icon: Building2, color: 'primary', data: cities, href: '/cities', emptyMsg: 'No cities found' },
+        { type: 'franchises', title: 'Recent Franchises', icon: Store, color: 'accent', data: franchises, href: '/franchises', emptyMsg: 'No franchises found' },
+      ]);
     } else if (isFranchiseAdmin()) {
-      const franchiseId = user?.franchiseId || user?.franchise?.id;
+
+      const franchiseId = user?.franchiseId || user?.franchise?.id || "ebbeee18-271f-45e6-8955-3e7ae25725bf";
       if (franchiseId) {
         fetchFranchiseStats(franchiseId);
+        fetchRiders(1, 5, null, franchiseId);
+        setRecentItems([
+          { type: 'riders', title: 'Recent Riders', icon: Bike, color: 'primary', data: riders, href: '/riders', emptyMsg: 'No riders found' },
+        ]);
       }
     }
-  }, [isAdmin, isFranchiseAdmin, user, fetchAdminStats, fetchFranchiseStats, fetchCities, fetchFranchises]);
+  }, [isAdmin, isFranchiseAdmin, user, fetchAdminStats, fetchFranchiseStats, fetchCities, fetchFranchises, fetchRiders]);
 
   // Parse stats for admin - API returns: { cities, franchises, franchiseAdmins, riders }
   const adminStats = isAdmin() && stats ? {
@@ -99,8 +112,8 @@ const Dashboard = () => {
     },
     {
       title: 'Total Riders',
-      value: franchiseStats.ridersByStatus?.total || 
-            Object.values(franchiseStats.ridersByStatus).reduce((sum, val) => sum + (val.total || val), 0) || 0,
+      value: franchiseStats.ridersByStatus?.total ||
+        Object.values(franchiseStats.ridersByStatus).reduce((sum, val) => sum + (val.total || val), 0) || 0,
       icon: Bike,
       color: 'info',
       change: 'All riders',
@@ -108,6 +121,44 @@ const Dashboard = () => {
   ] : [];
 
   const cards = isAdmin() ? adminCards : franchiseCards;
+
+  const renderRecentItem = (item) => {
+    const Icon = item.icon;
+    const items = item.data || [];
+
+    return (
+      <div className="bg-card rounded-xl border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
+            <Icon size={20} className={`text-${item.color}`} />
+            {item.title}
+          </h3>
+          <a href={item.href} className="text-sm text-primary hover:underline">
+            View All
+          </a>
+        </div>
+        {items.length > 0 ? (
+          <div className="space-y-3">
+            {items.slice(0, 5).map((data) => (
+              <div key={data.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div>
+                  <p className="font-medium text-foreground">
+                    {data.name || data.fullName || data.full_name || 'N/A'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {data.code || data.phone || data.vehicleType || data.vehicle_type || ''}
+                  </p>
+                </div>
+                <StatusBadge status={data.status} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm text-center py-4">{item.emptyMsg}</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -128,61 +179,13 @@ const Dashboard = () => {
 
         {/* Recent Items Section */}
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Cities */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
-                <Building2 size={20} className="text-primary" />
-                Recent Cities
-              </h3>
-              <a href="/cities" className="text-sm text-primary hover:underline">
-                View All
-              </a>
+          {recentItems.map((item) => (
+            <div key={item.type}>
+              {item.type === 'cities' && renderRecentItem(item)}
+              {item.type === 'franchises' && renderRecentItem(item)}
+              {item.type === 'riders' && renderRecentItem(item)}
             </div>
-            {cities.length > 0 ? (
-              <div className="space-y-3">
-                {cities.slice(0, 5).map((city) => (
-                  <div key={city.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-foreground">{city.name}</p>
-                      <p className="text-xs text-muted-foreground">{city.code}</p>
-                    </div>
-                    <StatusBadge status={city.status} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm text-center py-4">No cities found</p>
-            )}
-          </div>
-
-          {/* Recent Franchises */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
-                <Store size={20} className="text-accent" />
-                Recent Franchises
-              </h3>
-              <a href="/franchises" className="text-sm text-primary hover:underline">
-                View All
-              </a>
-            </div>
-            {franchises.length > 0 ? (
-              <div className="space-y-3">
-                {franchises.slice(0, 5).map((franchise) => (
-                  <div key={franchise.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-foreground">{franchise.name}</p>
-                      <p className="text-xs text-muted-foreground">{franchise.code}</p>
-                    </div>
-                    <StatusBadge status={franchise.status} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm text-center py-4">No franchises found</p>
-            )}
-          </div>
+          ))}
         </div>
       </div>
     </DashboardLayout>
