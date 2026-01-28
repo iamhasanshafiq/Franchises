@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import StatsCards from '../components/dashboard/StatsCards';
 import { LoadingCard } from '../components/common/LoadingSpinner';
-import { Building2, Store, Bike, Users, TrendingUp, CheckCircle } from 'lucide-react';
-import { useStats } from '../hooks/useStats';
+import { 
+  Building2, Store, Bike, Users, 
+  TrendingUp, CheckCircle, MapPin, 
+  AlertCircle, ArrowRight, PieChart,
+  Activity
+} from 'lucide-react';
 import { useCities } from '../hooks/useCities';
 import { useFranchises } from '../hooks/useFranchises';
 import { useRiders } from '../hooks/useRiders';
@@ -13,190 +17,198 @@ import StatusBadge from '../components/common/StatusBadge';
 
 const Dashboard = () => {
   const { user, isAdmin, isFranchiseAdmin } = useAuth();
+  
+  const { cities, loading: citiesLoading, fetchCities } = useCities();
+  const { franchises, loading: franchisesLoading, fetchFranchises } = useFranchises();
+  const { riders, loading: ridersLoading, fetchRiders } = useRiders();
 
-  const { stats, loading, error, fetchAdminStats, fetchFranchiseStats } = useStats();
-  const { cities, fetchCities } = useCities();
-  const { franchises, fetchFranchises } = useFranchises();
-  const { riders, fetchRiders } = useRiders();
-  const [recentItems, setRecentItems] = useState([]);
-  console.log("Recent items: ", recentItems);
-
-
-  // Initial data fetch - only runs once on mount
   useEffect(() => {
     if (isAdmin()) {
-      fetchAdminStats();
-      fetchCities(1, 5); 
-      fetchFranchises(1, 5);
+      fetchCities();
+      fetchFranchises();
+      fetchRiders(); 
     } else if (isFranchiseAdmin()) {
       const franchiseId = user?.franchiseId || user?.franchise?.id;
-      fetchFranchiseStats();
       if (franchiseId) {
-        fetchRiders(1, 5, null, franchiseId); 
+        fetchRiders(null, null, null, franchiseId);
       }
     }
   }, [isAdmin, isFranchiseAdmin, user]);
 
-  // Update recentItems after data is fetched - this runs when cities, franchises, or riders change
-  useEffect(() => {
+  /**
+   * Advanced Data Intelligence 
+   * Computes complex metrics once per data update
+   */
+  const operationalIntelligence = useMemo(() => {
+    const metrics = {
+      admin: {},
+      franchise: {}
+    };
+
     if (isAdmin()) {
-      setRecentItems([
-        { type: 'cities', title: 'Recent Cities', icon: Building2, color: 'primary', data: cities, href: '/cities', emptyMsg: 'No cities found' },
-        { type: 'franchises', title: 'Recent Franchises', icon: Store, color: 'accent', data: franchises, href: '/franchises', emptyMsg: 'No franchises found' },
-      ]);
-    } else if (isFranchiseAdmin()) {
-      setRecentItems([
-        { type: 'riders', title: 'Recent Riders', icon: Bike, color: 'primary', data: riders, href: '/riders', emptyMsg: 'No riders found' },
-      ]);
+      metrics.admin = {
+        totalCities: cities?.length || 0,
+        totalFranchises: franchises?.length || 0,
+        activeFranchises: franchises?.filter(f => f.status === 'ACTIVE').length || 0,
+        totalRiders: riders?.length || 0,
+        activeRiders: riders?.filter(r => r.status === 'APPROVED' || r.status === 'ACTIVE').length || 0,
+        pendingRiders: riders?.filter(r => r.status === 'APPLIED').length || 0,
+        // Regional Concentration
+        topCity: cities?.map(c => ({
+          name: c.name,
+          count: franchises?.filter(f => f.cityId === c.id).length
+        })).sort((a, b) => b.count - a.count)[0]?.name || 'N/A'
+      };
+    } else {
+      const fleet = riders || [];
+      metrics.franchise = {
+        total: fleet.length,
+        active: fleet.filter(r => r.status === 'APPROVED' || r.status === 'ACTIVE').length,
+        pending: fleet.filter(r => r.status === 'APPLIED').length,
+        bikeCount: fleet.filter(r => r.vehicleType === 'BIKE').length,
+        motoCount: fleet.filter(r => r.vehicleType === 'MOTORBIKE').length,
+        utilization: Math.round((fleet.filter(r => r.status === 'ACTIVE').length / (user?.franchise?.maxActiveRiders || 1)) * 100)
+      };
     }
-  }, [isAdmin, isFranchiseAdmin, cities, franchises, riders]);
+    return metrics;
+  }, [cities, franchises, riders, isAdmin, user]);
 
-  // Parse stats for admin - API returns: { cities, franchises, franchiseAdmins, riders }
-  const adminStats = isAdmin() && stats ? {
-    cities: stats.cities || 0,
-    franchises: stats.franchises || {},
-    franchiseAdmins: stats.franchiseAdmins || {},
-    riders: stats.riders || {},
-  } : null;
+  const cards = useMemo(() => {
+    if (isAdmin()) {
+      const { admin } = operationalIntelligence;
+      return [
+        { title: 'Global Cities', value: admin.totalCities, icon: MapPin, color: 'blue', change: `Focus: ${admin.topCity}` },
+        { title: 'Active Nodes', value: admin.activeFranchises, icon: Store, color: 'purple', change: `${admin.totalFranchises} Registered` },
+        { title: 'Live Fleet', value: admin.activeRiders, icon: Bike, color: 'emerald', change: `${admin.totalRiders} Total Units` },
+        { title: 'Pending Audit', value: admin.pendingRiders, icon: TrendingUp, color: 'orange', change: 'Awaiting Verification' }
+      ];
+    }
 
-  // Parse stats for franchise admin
-  // API returns: { status: "success", data: { franchiseId, franchise, city, role, riders: { total, applied, interviewed, approved, active, suspended, blocked } } }
-  const franchiseStats = (isFranchiseAdmin() && stats) ? {
-    franchiseName: stats.franchise || user?.franchise?.name || 'Unknown',
-    cityName: stats.city || user?.city?.name || 'Unknown',
-    ridersByStatus: stats.riders || {},
-  } : null;
+    const { franchise } = operationalIntelligence;
+    return [
+      { title: 'Fleet Strength', value: franchise.total, icon: Bike, color: 'blue', change: `${franchise.bikeCount} Bikes | ${franchise.motoCount} Moto` },
+      { title: 'Operational', value: franchise.active, icon: CheckCircle, color: 'emerald', change: 'Fully Verified' },
+      { title: 'Audit Queue', value: franchise.pending, icon: TrendingUp, color: 'orange', change: 'Immediate Action' },
+      { title: 'Node Capacity', value: `${franchise.utilization}%`, icon: Activity, color: 'slate', change: `Limit: ${user?.franchise?.maxActiveRiders || 0}` }
+    ];
+  }, [isAdmin, operationalIntelligence, user]);
 
-  const adminCards = adminStats ? [
-    {
-      title: 'Total Cities',
-      value: adminStats.cities,
-      icon: Building2,
-      color: 'primary',
-      change: 'All cities',
-    },
-    {
-      title: 'Total Franchises',
-      value: adminStats.franchises.total || 0,
-      icon: Store,
-      color: 'accent',
-      change: `${adminStats.franchises.active || 0} active`,
-    },
-    {
-      title: 'Franchise Admins',
-      value: adminStats.franchiseAdmins.total || 0,
-      icon: Users,
-      color: 'info',
-      change: 'All admins',
-    },
-    {
-      title: 'Active Riders',
-      value: adminStats.riders.active || 0,
-      icon: CheckCircle,
-      color: 'success',
-      change: `${adminStats.riders.total || 0} total`,
-    },
-  ] : [];
+  const isDataLoading = citiesLoading || franchisesLoading || ridersLoading;
 
-  const franchiseCards = franchiseStats ? [
-    {
-      title: 'Franchise',
-      value: franchiseStats.franchiseName,
-      icon: Store,
-      color: 'primary',
-      change: franchiseStats.cityName,
-    },
-    {
-      title: 'Active Riders',
-      value: franchiseStats.ridersByStatus?.ACTIVE || 0,
-      icon: CheckCircle,
-      color: 'success',
-      change: 'Currently active',
-    },
-    {
-      title: 'Pending Approval',
-      value: (franchiseStats.ridersByStatus?.APPLIED || 0) + (franchiseStats.ridersByStatus?.INTERVIEWED || 0),
-      icon: TrendingUp,
-      color: 'warning',
-      change: 'Needs attention',
-    },
-    {
-      title: 'Total Riders',
-      value: franchiseStats.ridersByStatus?.total ||
-        Object.values(franchiseStats.ridersByStatus).reduce((sum, val) => sum + (val.total || val), 0) || 0,
-      icon: Bike,
-      color: 'info',
-      change: 'All riders',
-    },
-  ] : [];
-
-  const cards = isAdmin() ? adminCards : franchiseCards;
-
-  const renderRecentItem = (item) => {
-    const Icon = item.icon;
-    const items = item.data || [];
-
-    return (
-      <div className="bg-card rounded-xl border border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
-            <Icon size={20} className={`text-${item.color}`} />
-            {item.title}
-          </h3>
-          <a href={item.href} className="text-sm text-primary hover:underline">
-            View All
-          </a>
+  const DetailSection = ({ title, icon: Icon, children }) => (
+    <div className="flex flex-col space-y-4">
+      <div className="flex items-center gap-2 px-1">
+        <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
+          <Icon size={18} />
         </div>
-        {items.length > 0 ? (
-          <div className="space-y-3">
-            {items.slice(0, 5).map((data) => (
-              <div key={data.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div>
-                  <p className="font-medium text-foreground">
-                    {data.name || data.fullName || data.full_name || 'N/A'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {data.code || data.phone || data.vehicleType || data.vehicle_type || ''}
-                  </p>
-                </div>
-                <StatusBadge status={data.status} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-sm text-center py-4">{item.emptyMsg}</p>
-        )}
+        <h2 className="text-sm font-black text-slate-800 uppercase tracking-[0.15em]">{title}</h2>
       </div>
-    );
-  };
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {children}
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
-      <Header
-        title="Dashboard"
-        subtitle={`Welcome back, ${user?.email?.split('@')[0] || 'User'}`}
+      <Header 
+        title="Operations Command" 
+        subtitle={`Live Intelligence Portal • ${user?.role?.replace('_', ' ')}: ${user?.fullName || user?.email?.split('@')[0]}`} 
       />
-      <div className="p-6">
-        {loading ? (
-          <LoadingCard message="Loading statistics..." />
-        ) : error ? (
-          <div className="text-center text-red-500 py-8">
-            Failed to load statistics. Please try again.
-          </div>
+      
+      <div className="p-8 max-w-[1600px] mx-auto space-y-10 animate-in fade-in duration-700">
+        {isDataLoading ? (
+          <LoadingCard message="Syncing with Barqi Global Network..." />
         ) : (
-          <StatsCards cards={cards} />
-        )}
+          <>
+            <StatsCards cards={cards} />
 
-        {/* Recent Items Section */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {recentItems.map((item) => (
-            <div key={item.type}>
-              {item.type === 'cities' && renderRecentItem(item)}
-              {item.type === 'franchises' && renderRecentItem(item)}
-              {item.type === 'riders' && renderRecentItem(item)}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Primary Data Feed */}
+              <div className="lg:col-span-2 space-y-8">
+                <DetailSection title="Recent Fleet Activity" icon={Activity}>
+                  <div className="divide-y divide-slate-100">
+                    {riders?.slice(0, 6).map((rider) => (
+                      <div key={rider.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-all group">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                            {rider.fullName?.charAt(0) || 'R'}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-700">{rider.fullName}</span>
+                            <span className="text-[11px] text-slate-400 font-mono uppercase tracking-tighter">
+                              {rider.vehicleType} • {rider.phone}
+                            </span>
+                          </div>
+                        </div>
+                        <StatusBadge status={rider.status} />
+                      </div>
+                    ))}
+                    {(!riders || riders.length === 0) && (
+                      <div className="py-20 text-center text-slate-400 italic text-sm">No rider activity detected.</div>
+                    )}
+                  </div>
+                </DetailSection>
+              </div>
+
+              {/* Side Intelligence Panel */}
+              <div className="space-y-8">
+                {isAdmin() ? (
+                  <DetailSection title="Infrastructure Distribution" icon={PieChart}>
+                    <div className="p-6 space-y-6">
+                      {cities?.slice(0, 5).map(city => {
+                        const count = franchises?.filter(f => f.cityId === city.id).length || 0;
+                        const percentage = Math.round((count / (franchises?.length || 1)) * 100);
+                        return (
+                          <div key={city.id} className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold">
+                              <span className="text-slate-600 uppercase tracking-tighter">{city.name}</span>
+                              <span className="text-slate-400">{count} Nodes ({percentage}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-blue-500 h-full rounded-full" style={{ width: `${percentage}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </DetailSection>
+                ) : (
+                  <DetailSection title="Fleet Mix" icon={PieChart}>
+                    <div className="p-6 space-y-6">
+                      <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="flex items-center gap-3">
+                          <Bike className="text-blue-600" size={20} />
+                          <span className="text-sm font-bold text-blue-900">Bikes</span>
+                        </div>
+                        <span className="text-lg font-black text-blue-600">{operationalIntelligence.franchise.bikeCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                        <div className="flex items-center gap-3">
+                          <Activity className="text-indigo-600" size={20} />
+                          <span className="text-sm font-bold text-indigo-900">Motorbikes</span>
+                        </div>
+                        <span className="text-lg font-black text-indigo-600">{operationalIntelligence.franchise.motoCount}</span>
+                      </div>
+                    </div>
+                  </DetailSection>
+                )}
+                
+                <div className="bg-slate-900 rounded-2xl p-6 text-white overflow-hidden relative group">
+                  <div className="relative z-10">
+                    <p className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em] mb-2">Network Health</p>
+                    <h3 className="text-xl font-bold mb-4">Node: {user?.franchise?.code || 'Global-Root'}</h3>
+                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      Syncing with Mainframe
+                    </div>
+                  </div>
+                  <Activity className="absolute -right-4 -bottom-4 text-white/5 group-hover:text-white/10 transition-colors" size={120} />
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

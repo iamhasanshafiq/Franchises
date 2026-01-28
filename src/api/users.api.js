@@ -25,9 +25,7 @@ axiosInstance.interceptors.request.use(
 
 export const usersApi = {
   getAll: async (page = 1, limit = 10) => {
-    const response = await axiosInstance.get('/users/', {
-      params: { page, limit },
-    });
+    const response = await axiosInstance.get('/users/');
     return response.data;
   },
 

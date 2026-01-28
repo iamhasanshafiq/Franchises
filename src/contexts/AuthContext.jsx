@@ -5,9 +5,7 @@ const AuthContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
 
@@ -16,7 +14,6 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session on mount
     const storedUser = authApi.getCurrentUser();
     if (storedUser && authApi.isAuthenticated()) {
       setUser(storedUser);
@@ -25,24 +22,28 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await authApi.login(email, password);
-    
-    if (response.status === 'success') {
-      const { access, refresh, email: userEmail, role } = response.data;
+    const response = await fetch('https://api.barqibazar.org/iam/users/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const result = await response.json();
+
+    if (result.status === 'success') {
+      const { access, refresh, role, email: userEmail } = result.data;
       
-      // Store tokens
+      // Consistency: Use underscores to match the Helper and Context checks
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       
-      // Store user info
       const userData = { email: userEmail, role };
       localStorage.setItem('user', JSON.stringify(userData));
       
       setUser(userData);
-      return { success: true, user: userData };
+      return { success: true };
     }
-    
-    throw new Error('Login failed');
+    throw new Error(result.message || 'Login failed');
   };
 
   const logout = () => {
@@ -50,27 +51,15 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const isAdmin = () => {
-    return user?.role === 'SUPER_ADMIN';
-  };
-
-  const isFranchiseAdmin = () => {
-    return user?.role === 'FRANCHISE_ADMIN';
-  };
-
   const value = {
     user,
     isLoading,
     isAuthenticated: !!user,
+    isAdmin: () => user?.role === 'SUPER_ADMIN',
+    isFranchiseAdmin: () => user?.role === 'FRANCHISE_ADMIN',
     login,
     logout,
-    isAdmin,
-    isFranchiseAdmin,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

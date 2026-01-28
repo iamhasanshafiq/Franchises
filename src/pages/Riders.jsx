@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import DataTable from '../components/common/DataTable';
@@ -8,365 +9,289 @@ import StatusBadge from '../components/common/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Plus, Eye, Upload, FileText, X, Loader2 } from 'lucide-react';
+import {
+  Plus, Eye, Upload, FileText, X, Loader2, Search, ShieldCheck, Mail, Lock
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useRiders } from '../hooks/useRiders';
-import { useFranchises } from '../hooks/useFranchises';
 import { useCities } from '../hooks/useCities';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { uploadFiles } from '../utils/fileUpload';
+import { toast } from 'sonner';
 
 const Riders = () => {
-  const { isAdmin, isFranchiseAdmin } = useAuth();
   const navigate = useNavigate();
-  const { riders, loading, pagination, fetchRiders, createRider } = useRiders();
-  const { franchises, myFranchise, fetchFranchises, fetchMyFranchise } = useFranchises();
-  const { cities, fetchCities } = useCities();
+  const { token } = useAuth(); // Using token from auth context
+
+  const { riders, loading: ridersLoading, fetchRiders, createRider } = useRiders();
+  const { cities, fetchCities, loading: citiesLoading } = useCities();
+
+  // --- 1. Custom Franchise Logic ---
+  const [myFranchise, setMyFranchise] = useState(null);
+  const [myFranchiseLoading, setMyFranchiseLoading] = useState(false);
+
+  const fetchMyFranchise = async () => {
+    setMyFranchiseLoading(true);
+    // Always get the freshest token from storage to avoid closure staleness
+    const accessToken = localStorage.getItem('access_token');
+
+    try {
+      const response = await axios.get('https://api.barqibazar.org/franchise/api/franchises/me/franchise', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+      
+      // Fixed: Accessing response.data.data based on your JSON structure
+      if (response.data?.status === "success") {
+        setMyFranchise(response.data.data);
+      }
+    } catch (error) {
+      console.error("Franchise Fetch Error:", error);
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again.");
+        navigate('/login');
+      }
+    } finally {
+      setMyFranchiseLoading(false);
+    }
+  };
+
+  // --- 2. Local State ---
   const [modalOpen, setModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: '', 
-    phone: '', 
-    vehicleType: 'BIKE',
-    franchiseId: '',
-    cityId: '' 
-  });
-  const [documentForm, setDocumentForm] = useState({
-    documentType: 'CNIC',
-  });
-  const [riderDocuments, setRiderDocuments] = useState([]);
   const [formLoading, setFormLoading] = useState(false);
   const [docLoading, setDocLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    fetchRiders(pagination.page, pagination.limit);
-    if (isAdmin()) {
-      fetchCities(1, 100);
-      fetchFranchises(1, 100);
-    } else if (isFranchiseAdmin()) {
-      fetchMyFranchise();
-    }
-  }, [fetchRiders, pagination.page, pagination.limit, isAdmin, isFranchiseAdmin, fetchCities, fetchFranchises, fetchMyFranchise]);
+  const initialFormState = {
+    fullName: '', phone: '', vehicleType: 'BIKE',
+    franchiseId: '', cityId: '', email: '',
+    password: '', identityNumber: ''
+  };
 
-  // Auto-fill form data when myFranchise is loaded
+  const [formData, setFormData] = useState(initialFormState);
+  const [riderDocuments, setRiderDocuments] = useState([]);
+  const [selectedDocType, setSelectedDocType] = useState('CNIC');
+
+  // --- 3. Initial Load ---
   useEffect(() => {
-    if (isFranchiseAdmin() && myFranchise) {
-      setFormData(prev => ({
-        ...prev,
-        franchiseId: myFranchise.id,
-        cityId: myFranchise.cityId,
+    fetchRiders();
+    fetchCities({ page: 1, limit: 100 });
+    fetchMyFranchise();
+  }, []);
+
+  // --- 4. Handlers ---
+  const openModal = () => {
+    // Fixed: Correctly mapping from the nested 'data' object structure
+    setFormData({
+      ...initialFormState,
+      franchiseId: myFranchise?.id || '',
+      cityId: myFranchise?.cityId || '' 
+    });
+    setRiderDocuments([]);
+    setModalOpen(true);
+  };
+
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setDocLoading(true);
+    try {
+      const uploadedFiles = await uploadFiles(files);
+      const newDocs = uploadedFiles.map(file => ({
+        documentType: selectedDocType,
+        documentUrl: file.url,
+        originalName: file.originalName,
+        id: Math.random().toString(36).substr(2, 9)
       }));
+      setRiderDocuments(prev => [...prev, ...newDocs]);
+      toast.success("Document attached");
+    } catch (error) {
+      toast.error("Upload failed");
+    } finally {
+      setDocLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, [isFranchiseAdmin, myFranchise]);
-
-  const columns = [
-    { key: 'fullName', label: 'Name', render: (_, row) => row.fullName || row.full_name || '-' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'vehicleType', label: 'Vehicle', render: (_, row) => row.vehicleType || row.vehicle_type || '-' },
-    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
-    { key: 'createdAt', label: 'Created', render: (val) => val ? new Date(val).toLocaleDateString() : '-' },
-    { key: 'actions', label: 'Actions', render: (_, row) => (
-      <div className="flex gap-2">
-        <Button size="sm" variant="ghost" onClick={() => navigate(`/riders/${row.id}`)}>
-          <Eye size={16} />
-        </Button>
-      </div>
-    )},
-  ];
-
-  const handlePageChange = (newPage) => {
-    fetchRiders(newPage, pagination.limit);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.franchiseId || !formData.cityId) {
+      return toast.error("Franchise and City assignment is required.");
+    }
+
     setFormLoading(true);
     try {
       await createRider({
-        fullName: formData.fullName,
-        phone: formData.phone,
-        vehicleType: formData.vehicleType,
-        franchiseId: formData.franchiseId,
-        cityId: formData.cityId,
-        documents: riderDocuments,
+        ...formData,
+        documents: riderDocuments.map(({ documentType, documentUrl }) => ({ documentType, documentUrl }))
       });
       setModalOpen(false);
-      setFormData({ fullName: '', phone: '', vehicleType: 'BIKE', franchiseId: '', cityId: '' });
-      setRiderDocuments([]);
+      fetchRiders();
+      toast.success("Rider initialized successfully");
     } catch (error) {
-      console.error('Error creating rider:', error);
+      toast.error(error?.response?.data?.message || "Failed to create rider");
     } finally {
       setFormLoading(false);
     }
   };
 
-  const handleRemoveDocument = (docId) => {
-    setRiderDocuments(riderDocuments.filter(doc => doc.id !== docId));
-  };
-
-  const handleFileSelect = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    setDocLoading(true);
-    try {
-      const uploadedFiles = await uploadFiles(files);
-      
-      // Add each uploaded file to documents list with default type
-      const newDocs = uploadedFiles.map((file) => ({
-        id: file.id,
-        documentType: documentForm.documentType,
-        documentUrl: file.url,
-        originalName: file.originalName,
-      }));
-      
-      setRiderDocuments([...riderDocuments, ...newDocs]);
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Failed to upload file. Please try again.');
-    } finally {
-      setDocLoading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const documentTypeOptions = [
-    'CNIC',
-    'DRIVING_LICENSE',
-    'VEHICLE_REGISTRATION',
-    'INSURANCE',
-    'PROFILE_PHOTO',
-    'ADDRESS_PROOF',
-    'OTHER',
-  ];
+  const columns = useMemo(() => [
+    {
+      key: 'fullName',
+      label: 'Rider Identity',
+      render: (val, row) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center text-green-700 font-bold uppercase">
+            {val?.charAt(0) || 'R'}
+          </div>
+          <div>
+            <span className="block font-bold text-gray-900">{val}</span>
+            <span className="block text-xs text-gray-500">{row.email}</span>
+          </div>
+        </div>
+      )
+    },
+    { key: 'phone', label: 'Contact', render: (val) => <span className="font-mono text-sm">{val}</span> },
+    { key: 'vehicleType', label: 'Vehicle', render: (val) => <span className="text-xs font-bold uppercase bg-gray-100 px-2 py-1 rounded">{val}</span> },
+    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
+    { key: 'actions', label: 'Actions', render: (_, row) => <Button size="sm" variant="ghost" onClick={() => navigate(`/riders/${row.id}`)}><Eye size={16} /></Button> }
+  ], [navigate]);
 
   return (
     <DashboardLayout>
-      <Header title="Riders" subtitle="Manage delivery riders" />
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold">All Riders</h2>
-          {isFranchiseAdmin() && (
-            <Button onClick={() => setModalOpen(true)}>
-              <Plus size={18} className="mr-2" /> Add Rider
-            </Button>
-          )}
-        </div>
-        <DataTable 
-          columns={columns} 
-          data={riders} 
-          loading={loading} 
-          emptyMessage="No riders found"
-          pagination={{
-            page: pagination.page,
-            totalPages: pagination.totalPages,
-            hasNext: pagination.hasNext,
-            hasPrev: pagination.hasPrev,
-            onPageChange: handlePageChange
-          }}
-        />
-        
-        {riders.length > 0 && (
-          <div className="text-sm text-muted-foreground text-center mt-4">
-            Showing {riders.length} of {pagination.total} riders
+      <Header title="Fleet Operations" subtitle="Manage delivery personnel" />
+
+      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input placeholder="Search riders..." className="pl-10 h-10 rounded-xl bg-gray-50 border-gray-200 focus:ring-green-500" />
           </div>
-        )}
+          <Button onClick={openModal} className="w-full sm:w-auto rounded-xl h-10 px-6 bg-green-600 hover:bg-green-700 text-white transition-all shadow-md">
+            <Plus size={18} className="mr-2" /> Initialize Rider
+          </Button>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <DataTable columns={columns} data={riders} loading={ridersLoading} emptyMessage="No active riders found." />
+        </div>
       </div>
 
-      {/* Add Rider Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Add Rider" size="lg">
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          {/* Franchise Admin: Show dedicated sections (read-only) */}
-          {isFranchiseAdmin() && myFranchise ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Franchise</Label>
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="font-medium">{myFranchise.name}</p>
-                  <p className="text-xs text-muted-foreground">{myFranchise.code}</p>
-                </div>
-              </div>
-              <div>
-                <Label>City</Label>
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="font-medium">{myFranchise.city?.name || '-'}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Admin: Show dropdowns for selection */
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Franchise</Label>
-                <Select 
-                  value={formData.franchiseId} 
-                  onValueChange={(value) => setFormData({ ...formData, franchiseId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select franchise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {franchises.map((franchise) => (
-                      <SelectItem key={franchise.id} value={franchise.id}>
-                        {franchise.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>City</Label>
-                <Select 
-                  value={formData.cityId} 
-                  onValueChange={(value) => setFormData({ ...formData, cityId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select city" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cities.map((city) => (
-                      <SelectItem key={city.id} value={city.id}>
-                        {city.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          
-          <div>
-            <Label>Full Name</Label>
-            <Input 
-              value={formData.fullName} 
-              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} 
-              placeholder="Enter full name"
-              required 
-            />
-          </div>
-          
-          <div>
-            <Label>Phone</Label>
-            <Input 
-              value={formData.phone} 
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
-              placeholder="+923001234567"
-              required 
-            />
-          </div>
-          
-          <div>
-            <Label>Vehicle Type</Label>
-            <Select 
-              value={formData.vehicleType}
-              onValueChange={(value) => setFormData({ ...formData, vehicleType: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BIKE">Bike</SelectItem>
-                <SelectItem value="MOTORBIKE">Motorbike</SelectItem>
-                <SelectItem value="CAR">Car</SelectItem>
-                <SelectItem value="VAN">Van</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {modalOpen && (
+        <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="New Rider Registration" size="lg">
+          <form className="space-y-5 py-2" onSubmit={handleSubmit}>
 
-          {/* Documents Section */}
-          <div className="border-t pt-4 mt-4">
-            <Label className="mb-2 block">Documents (Optional)</Label>
-            
-            {riderDocuments.length > 0 && (
-              <div className="space-y-2 mb-4">
-                {riderDocuments.map((doc, index) => (
-                  <div key={doc.id || index} className="flex items-center justify-between p-2 bg-muted rounded">
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-primary" />
-                      <span className="text-sm">{doc.documentType?.replace(/_/g, ' ')}</span>
-                      <span className="text-xs text-muted-foreground">({doc.originalName})</span>
+            {/* Fixed Context Section */}
+            <div className="bg-green-50/50 p-4 rounded-xl border border-green-100 grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase text-green-700 tracking-wider">Assigned Franchise</Label>
+                <Input
+                  disabled
+                  value={myFranchiseLoading ? "Loading..." : (myFranchise?.name || "Not Assigned")}
+                  className="h-10 bg-white border-green-200 disabled:opacity-100 font-medium text-gray-700"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase text-green-700 tracking-wider">Territory (City)</Label>
+                {/* Auto-selecting the city from the Franchise Data */}
+                <Input
+                  disabled
+                  value={myFranchise?.city?.name || "No City Assigned"}
+                  className="h-10 bg-white border-green-200 disabled:opacity-100 font-medium text-gray-700"
+                />
+              </div>
+            </div>
+
+            {/* Personal Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1">
+                <Label className="text-xs font-semibold">Full Legal Name</Label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input className="pl-9 h-10" placeholder="e.g. Ahmed Khan" value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} required />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Phone Number</Label>
+                <Input className="h-10" placeholder="03xx xxxxxxx" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Vehicle Type</Label>
+                <Select value={formData.vehicleType} onValueChange={val => setFormData({ ...formData, vehicleType: val })}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BIKE">Bike</SelectItem>
+                    <SelectItem value="MOTORBIKE">Motorbike</SelectItem>
+                    <SelectItem value="VAN">Van</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Rider Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input className="pl-9 h-10" type="email" placeholder="rider@barqi.pk" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Access Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input className="pl-9 h-10" type="password" placeholder="••••••••" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
+                </div>
+              </div>
+            </div>
+
+            {/* Documents Section */}
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div className="flex gap-2 mb-3">
+                <Select value={selectedDocType} onValueChange={setSelectedDocType}>
+                  <SelectTrigger className="w-1/3 h-9 bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CNIC">CNIC</SelectItem>
+                    <SelectItem value="DRIVING_LICENSE">License</SelectItem>
+                    <SelectItem value="VEHICLE_REGISTRATION">Registration</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" className="flex-1 h-9 bg-white border-dashed text-gray-600 hover:bg-green-50 hover:text-green-600" onClick={() => fileInputRef.current?.click()}>
+                  {docLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <><Upload className="w-4 h-4 mr-2" /> Upload Proof</>}
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                {riderDocuments.map(doc => (
+                  <div key={doc.id} className="flex justify-between items-center p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <FileText size={14} className="text-blue-500 flex-shrink-0" />
+                      <span className="text-xs font-medium truncate max-w-[180px]">{doc.originalName}</span>
+                      <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded uppercase">{doc.documentType}</span>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => handleRemoveDocument(doc.id)}
-                    >
-                      <X size={14} />
-                    </Button>
+                    <button type="button" className="text-gray-400 hover:text-red-500" onClick={() => setRiderDocuments(prev => prev.filter(d => d.id !== doc.id))}>
+                      <X size={16} />
+                    </button>
                   </div>
                 ))}
               </div>
-            )}
-            
-            {/* Hidden file input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              accept="image/*,.pdf,.doc,.docx"
-              multiple
-              className="hidden"
-            />
-            
-            <div className="flex gap-2">
-              <Select 
-                value={documentForm.documentType}
-                onValueChange={(value) => setDocumentForm({ ...documentForm, documentType: value })}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypeOptions.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type.replace(/_/g, ' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={triggerFileInput}
-                disabled={docLoading}
-                className="flex-1"
-              >
-                {docLoading ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" /> Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload size={16} className="mr-2" /> Choose File
-                  </>
-                )}
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-gray-100">
+              <Button type="button" variant="ghost" onClick={() => setModalOpen(false)} className="flex-1 h-11" disabled={formLoading}>Cancel</Button>
+              <Button type="submit" className="flex-[2] h-11 bg-green-600 hover:bg-green-700 text-white font-semibold" disabled={formLoading}>
+                {formLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : 'Confirm & Initialize Rider'}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Supported formats: Images, PDF, DOC, DOCX
-            </p>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => setModalOpen(false)} className="flex-1" disabled={formLoading}>Cancel</Button>
-            <Button type="submit" className="flex-1" disabled={formLoading}>
-              {formLoading ? 'Please wait...' : 'Create Rider'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+          </form>
+        </Modal>
+      )}
     </DashboardLayout>
   );
 };
 
 export default Riders;
-

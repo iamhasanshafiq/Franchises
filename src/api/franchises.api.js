@@ -7,7 +7,7 @@ export const franchisesApi = {
     const params = { page, limit };
     if (cityId) params.cityId = cityId;
     
-    const response = await axiosInstance.get(`${API_BASE_URL}/franchises`, { params });
+    const response = await axiosInstance.get(`${API_BASE_URL}/franchises`);
     return response.data;
   },
 
