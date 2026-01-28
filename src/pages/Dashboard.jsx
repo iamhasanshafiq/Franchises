@@ -1,214 +1,253 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { 
+  Building2, Store, Bike, Users, TrendingUp, CheckCircle, 
+  MapPin, AlertCircle, ArrowRight, PieChart, Activity, 
+  Wallet, ShieldAlert, Zap, Globe, BarChart3, Landmark
+} from 'lucide-react';
+
+// Hooks & Context
 import { useAuth } from '../hooks/useAuth';
+import { useCities } from '../hooks/useCities';
+import { useFranchises } from '../hooks/useFranchises';
+import { useRiders } from '../hooks/useRiders';
+
+// UI Components
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import StatsCards from '../components/dashboard/StatsCards';
 import { LoadingCard } from '../components/common/LoadingSpinner';
-import { 
-  Building2, Store, Bike, Users, 
-  TrendingUp, CheckCircle, MapPin, 
-  AlertCircle, ArrowRight, PieChart,
-  Activity
-} from 'lucide-react';
-import { useCities } from '../hooks/useCities';
-import { useFranchises } from '../hooks/useFranchises';
-import { useRiders } from '../hooks/useRiders';
 import StatusBadge from '../components/common/StatusBadge';
+import { Progress } from '../components/ui/progress';
+import { Button } from '../components/ui/button';
+
+const WALLET_BASE = "https://api.barqibazar.org/wallet";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { user, isAdmin, isFranchiseAdmin } = useAuth();
+  const [walletBalance, setWalletBalance] = useState(0);
   
   const { cities, loading: citiesLoading, fetchCities } = useCities();
   const { franchises, loading: franchisesLoading, fetchFranchises } = useFranchises();
   const { riders, loading: ridersLoading, fetchRiders } = useRiders();
 
+  // Sync Financial Intelligence
+  const loadFinancials = useCallback(async () => {
+    try {
+      const id = isAdmin() ? 'admin-root' : (user?.franchiseId || user?.franchise?.id);
+      const res = await axios.get(`${WALLET_BASE}/wallets/${id}?currency=PKR`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
+      });
+      setWalletBalance(res.data?.data?.balance || 0);
+    } catch (e) {
+      console.warn("Wallet data offline");
+    }
+  }, [isAdmin, user]);
+
   useEffect(() => {
     if (isAdmin()) {
       fetchCities();
       fetchFranchises();
-      fetchRiders(); 
+      fetchRiders();
     } else if (isFranchiseAdmin()) {
-      const franchiseId = user?.franchiseId || user?.franchise?.id;
-      if (franchiseId) {
-        fetchRiders(null, null, null, franchiseId);
-      }
+      const fId = user?.franchiseId || user?.franchise?.id;
+      if (fId) fetchRiders(null, null, null, fId);
     }
-  }, [isAdmin, isFranchiseAdmin, user]);
+    loadFinancials();
+  }, [isAdmin, isFranchiseAdmin, user, loadFinancials]);
 
-  /**
-   * Advanced Data Intelligence 
-   * Computes complex metrics once per data update
-   */
-  const operationalIntelligence = useMemo(() => {
-    const metrics = {
-      admin: {},
-      franchise: {}
+  // Operational Intelligence Engine
+  const analytics = useMemo(() => {
+    const fleet = riders || [];
+    const total = fleet.length;
+    const active = fleet.filter(r => ['ACTIVE', 'APPROVED'].includes(r.status)).length;
+    const pending = fleet.filter(r => r.status === 'APPLIED').length;
+    
+    // Calculate Capacity (assuming 100 as base if not defined)
+    const cap = user?.franchise?.maxActiveRiders || 100;
+    const utilization = Math.round((active / cap) * 100);
+
+    return {
+      fleetGrowth: total > 0 ? ((active / total) * 100).toFixed(1) : 0,
+      activeCount: active,
+      pendingCount: pending,
+      totalCount: total,
+      utilization,
+      bikeMix: fleet.filter(r => r.vehicleType === 'BIKE').length,
+      motoMix: fleet.filter(r => r.vehicleType === 'MOTORBIKE').length,
+      nodeHealth: franchises?.filter(f => f.status === 'ACTIVE').length || 0
     };
-
-    if (isAdmin()) {
-      metrics.admin = {
-        totalCities: cities?.length || 0,
-        totalFranchises: franchises?.length || 0,
-        activeFranchises: franchises?.filter(f => f.status === 'ACTIVE').length || 0,
-        totalRiders: riders?.length || 0,
-        activeRiders: riders?.filter(r => r.status === 'APPROVED' || r.status === 'ACTIVE').length || 0,
-        pendingRiders: riders?.filter(r => r.status === 'APPLIED').length || 0,
-        // Regional Concentration
-        topCity: cities?.map(c => ({
-          name: c.name,
-          count: franchises?.filter(f => f.cityId === c.id).length
-        })).sort((a, b) => b.count - a.count)[0]?.name || 'N/A'
-      };
-    } else {
-      const fleet = riders || [];
-      metrics.franchise = {
-        total: fleet.length,
-        active: fleet.filter(r => r.status === 'APPROVED' || r.status === 'ACTIVE').length,
-        pending: fleet.filter(r => r.status === 'APPLIED').length,
-        bikeCount: fleet.filter(r => r.vehicleType === 'BIKE').length,
-        motoCount: fleet.filter(r => r.vehicleType === 'MOTORBIKE').length,
-        utilization: Math.round((fleet.filter(r => r.status === 'ACTIVE').length / (user?.franchise?.maxActiveRiders || 1)) * 100)
-      };
-    }
-    return metrics;
-  }, [cities, franchises, riders, isAdmin, user]);
+  }, [riders, franchises, user]);
 
   const cards = useMemo(() => {
     if (isAdmin()) {
-      const { admin } = operationalIntelligence;
       return [
-        { title: 'Global Cities', value: admin.totalCities, icon: MapPin, color: 'blue', change: `Focus: ${admin.topCity}` },
-        { title: 'Active Nodes', value: admin.activeFranchises, icon: Store, color: 'purple', change: `${admin.totalFranchises} Registered` },
-        { title: 'Live Fleet', value: admin.activeRiders, icon: Bike, color: 'emerald', change: `${admin.totalRiders} Total Units` },
-        { title: 'Pending Audit', value: admin.pendingRiders, icon: TrendingUp, color: 'orange', change: 'Awaiting Verification' }
+        { title: 'Global Liquidity', value: `Rs. ${walletBalance.toLocaleString()}`, icon: Wallet, color: 'emerald', change: 'Network Total' },
+        { title: 'Active Nodes', value: analytics.nodeHealth, icon: Globe, color: 'blue', change: `${franchises?.length} Registered` },
+        { title: 'Fleet Deployment', value: analytics.activeCount, icon: Bike, color: 'indigo', change: `${analytics.totalCount} Units` },
+        { title: 'Audit Queue', value: analytics.pendingCount, icon: ShieldAlert, color: 'orange', change: 'Awaiting Action' }
       ];
     }
-
-    const { franchise } = operationalIntelligence;
     return [
-      { title: 'Fleet Strength', value: franchise.total, icon: Bike, color: 'blue', change: `${franchise.bikeCount} Bikes | ${franchise.motoCount} Moto` },
-      { title: 'Operational', value: franchise.active, icon: CheckCircle, color: 'emerald', change: 'Fully Verified' },
-      { title: 'Audit Queue', value: franchise.pending, icon: TrendingUp, color: 'orange', change: 'Immediate Action' },
-      { title: 'Node Capacity', value: `${franchise.utilization}%`, icon: Activity, color: 'slate', change: `Limit: ${user?.franchise?.maxActiveRiders || 0}` }
+      { title: 'Node Balance', value: `Rs. ${walletBalance.toLocaleString()}`, icon: Landmark, color: 'emerald', change: 'Available Funds' },
+      { title: 'Fleet Utilization', value: `${analytics.utilization}%`, icon: Zap, color: 'blue', change: 'Capacity Used' },
+      { title: 'Ready Fleet', value: analytics.activeCount, icon: CheckCircle, color: 'indigo', change: 'Operational Units' },
+      { title: 'Compliance Wait', value: analytics.pendingCount, icon: Activity, color: 'orange', change: 'New Applications' }
     ];
-  }, [isAdmin, operationalIntelligence, user]);
+  }, [isAdmin, analytics, walletBalance, franchises]);
 
-  const isDataLoading = citiesLoading || franchisesLoading || ridersLoading;
-
-  const DetailSection = ({ title, icon: Icon, children }) => (
-    <div className="flex flex-col space-y-4">
-      <div className="flex items-center gap-2 px-1">
-        <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
-          <Icon size={18} />
-        </div>
-        <h2 className="text-sm font-black text-slate-800 uppercase tracking-[0.15em]">{title}</h2>
-      </div>
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {children}
-      </div>
-    </div>
-  );
+  if (citiesLoading || franchisesLoading || ridersLoading) {
+    return <LoadingCard message="Calibrating Operational Analytics..." />;
+  }
 
   return (
     <DashboardLayout>
       <Header 
-        title="Operations Command" 
-        subtitle={`Live Intelligence Portal • ${user?.role?.replace('_', ' ')}: ${user?.fullName || user?.email?.split('@')[0]}`} 
+        title="Operations Intelligence" 
+        subtitle={`Live Command Data • ${user?.fullName || 'System Admin'}`} 
       />
       
-      <div className="p-8 max-w-[1600px] mx-auto space-y-10 animate-in fade-in duration-700">
-        {isDataLoading ? (
-          <LoadingCard message="Syncing with Barqi Global Network..." />
-        ) : (
-          <>
-            <StatsCards cards={cards} />
+      <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        
+        {/* Tier 1: Financial & Deployment Summary */}
+        <StatsCards cards={cards} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Primary Data Feed */}
-              <div className="lg:col-span-2 space-y-8">
-                <DetailSection title="Recent Fleet Activity" icon={Activity}>
-                  <div className="divide-y divide-slate-100">
-                    {riders?.slice(0, 6).map((rider) => (
-                      <div key={rider.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-all group">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                            {rider.fullName?.charAt(0) || 'R'}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-700">{rider.fullName}</span>
-                            <span className="text-[11px] text-slate-400 font-mono uppercase tracking-tighter">
-                              {rider.vehicleType} • {rider.phone}
-                            </span>
-                          </div>
-                        </div>
-                        <StatusBadge status={rider.status} />
-                      </div>
-                    ))}
-                    {(!riders || riders.length === 0) && (
-                      <div className="py-20 text-center text-slate-400 italic text-sm">No rider activity detected.</div>
-                    )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Tier 2: Real-time Operational Stream */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100">
+                    <TrendingUp size={20} />
                   </div>
-                </DetailSection>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">Deployment Stream</h3>
+                    <p className="text-xs text-slate-400">Latest fleet status updates</p>
+                  </div>
+                </div>
+                <Button variant="ghost" onClick={() => navigate('/riders')} className="rounded-xl font-bold text-indigo-600 hover:bg-indigo-50">
+                  Full Fleet <ArrowRight size={16} className="ml-2" />
+                </Button>
               </div>
-
-              {/* Side Intelligence Panel */}
-              <div className="space-y-8">
-                {isAdmin() ? (
-                  <DetailSection title="Infrastructure Distribution" icon={PieChart}>
-                    <div className="p-6 space-y-6">
-                      {cities?.slice(0, 5).map(city => {
-                        const count = franchises?.filter(f => f.cityId === city.id).length || 0;
-                        const percentage = Math.round((count / (franchises?.length || 1)) * 100);
-                        return (
-                          <div key={city.id} className="space-y-2">
-                            <div className="flex justify-between text-xs font-bold">
-                              <span className="text-slate-600 uppercase tracking-tighter">{city.name}</span>
-                              <span className="text-slate-400">{count} Nodes ({percentage}%)</span>
-                            </div>
-                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                              <div className="bg-blue-500 h-full rounded-full" style={{ width: `${percentage}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </DetailSection>
-                ) : (
-                  <DetailSection title="Fleet Mix" icon={PieChart}>
-                    <div className="p-6 space-y-6">
-                      <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-100">
-                        <div className="flex items-center gap-3">
-                          <Bike className="text-blue-600" size={20} />
-                          <span className="text-sm font-bold text-blue-900">Bikes</span>
-                        </div>
-                        <span className="text-lg font-black text-blue-600">{operationalIntelligence.franchise.bikeCount}</span>
+              
+              <div className="divide-y divide-slate-50">
+                {riders?.slice(0, 5).map((rider) => (
+                  <div key={rider.id} className="p-5 flex items-center justify-between hover:bg-slate-50/80 transition-all cursor-pointer group" onClick={() => navigate(`/riders/${rider.id}`)}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-lg group-hover:scale-110 transition-transform">
+                        {rider.fullName?.charAt(0)}
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                        <div className="flex items-center gap-3">
-                          <Activity className="text-indigo-600" size={20} />
-                          <span className="text-sm font-bold text-indigo-900">Motorbikes</span>
+                      <div>
+                        <p className="text-sm font-black text-slate-700">{rider.fullName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-500 uppercase tracking-tighter">{rider.vehicleType}</span>
+                          <span className="text-[10px] text-slate-400 font-mono tracking-widest">{rider.phone}</span>
                         </div>
-                        <span className="text-lg font-black text-indigo-600">{operationalIntelligence.franchise.motoCount}</span>
                       </div>
                     </div>
-                  </DetailSection>
-                )}
-                
-                <div className="bg-slate-900 rounded-2xl p-6 text-white overflow-hidden relative group">
-                  <div className="relative z-10">
-                    <p className="text-[10px] font-black uppercase text-blue-400 tracking-[0.2em] mb-2">Network Health</p>
-                    <h3 className="text-xl font-bold mb-4">Node: {user?.franchise?.code || 'Global-Root'}</h3>
-                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      Syncing with Mainframe
-                    </div>
+                    <StatusBadge status={rider.status} />
                   </div>
-                  <Activity className="absolute -right-4 -bottom-4 text-white/5 group-hover:text-white/10 transition-colors" size={120} />
+                ))}
+              </div>
+            </div>
+
+            {/* Tier 3: Admin Regional Heatmap */}
+            {isAdmin() && (
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                    <BarChart3 size={20} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">Node Concentration by Region</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                  {cities?.slice(0, 4).map(city => {
+                    const count = franchises?.filter(f => f.cityId === city.id).length || 0;
+                    const percent = Math.min((count / 10) * 100, 100); // Scale relative to 10 nodes
+                    return (
+                      <div key={city.id} className="space-y-3">
+                        <div className="flex justify-between items-end">
+                          <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">{city.name}</p>
+                            <p className="text-sm font-bold text-slate-700">{count} Active Hubs</p>
+                          </div>
+                          <span className="text-xs font-bold text-blue-600">{count > 0 ? 'High Growth' : 'Expansion Target'}</span>
+                        </div>
+                        <Progress value={percent} className="h-2 rounded-full bg-slate-100" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar Intelligence */}
+          <div className="space-y-8">
+            
+            {/* Fleet Composition Mix */}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
+                  <PieChart size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Fleet Mix</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <Bike size={20} className="text-blue-600" />
+                    <span className="text-sm font-bold text-slate-600">Standard Bikes</span>
+                  </div>
+                  <span className="text-lg font-black text-blue-600">{analytics.bikeMix}</span>
+                </div>
+                <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <Zap size={20} className="text-indigo-600" />
+                    <span className="text-sm font-bold text-slate-600">Motorbikes</span>
+                  </div>
+                  <span className="text-lg font-black text-indigo-600">{analytics.motoMix}</span>
                 </div>
               </div>
             </div>
-          </>
-        )}
+
+            {/* Quick Command Node Status */}
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl">
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">System Handshake: Optimal</span>
+                </div>
+                <h4 className="text-2xl font-bold mb-2">Node: {user?.franchise?.code || 'Barqi-Root'}</h4>
+                <p className="text-sm text-slate-400 leading-relaxed mb-6">Currently overseeing {analytics.totalCount} assets in the regional mesh network.</p>
+                <div className="space-y-4">
+                   <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      <span>Operational Efficiency</span>
+                      <span className="text-white">{analytics.utilization}%</span>
+                   </div>
+                   <Progress value={analytics.utilization} className="h-1.5 bg-slate-800" />
+                </div>
+              </div>
+              <Activity className="absolute -right-8 -bottom-8 text-white/5 group-hover:text-white/10 transition-all duration-1000 rotate-12" size={200} />
+            </div>
+
+            {/* Admin Utility Links */}
+            <div className="grid grid-cols-2 gap-4">
+               <Button onClick={() => navigate('/stores')} variant="outline" className="h-28 rounded-[2rem] flex flex-col gap-3 border-slate-200 hover:border-indigo-500 transition-all group shadow-sm">
+                 <Store size={24} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+                 <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-600">Hubs</span>
+               </Button>
+               <Button onClick={() => navigate('/franchise-admins')} variant="outline" className="h-28 rounded-[2rem] flex flex-col gap-3 border-slate-200 hover:border-blue-500 transition-all group shadow-sm">
+                 <Users size={24} className="text-blue-500 group-hover:scale-110 transition-transform" />
+                 <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-blue-600">Admins</span>
+               </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

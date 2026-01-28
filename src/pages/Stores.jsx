@@ -1,279 +1,285 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import Header from '../components/common/Header';
-import DashboardLayout from '../components/layout/DashboardLayout';
-import DataTable from '../components/common/DataTable';
-import Modal from '../components/common/Modal';
-import StatusBadge from '../components/common/StatusBadge';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { toast } from 'sonner';
-import { 
-  Plus, Search, MapPin, Loader2, Eye, Navigation, Crosshair, Map 
-} from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
+import L from "leaflet";
+import { Plus, Search, MapPin, Eye, Map as MapIcon, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-// Updated Base URL
+// Components (Assuming these paths)
+import Header from "../components/common/Header";
+import DashboardLayout from "../components/layout/DashboardLayout";
+import DataTable from "../components/common/DataTable";
+import Modal from "../components/common/Modal";
+import StatusBadge from "../components/common/StatusBadge";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+
 const BASE_URL = "https://api.barqibazar.org/franchise/api";
+
+// --- Leaflet Fixes ---
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
+
+// --- Helper Components ---
+
+// 1. Fixes the "Grey Map" issue when modal opens
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+  }, [map]);
+  return null;
+}
+
+// 2. Handles clicking on the map to drop a pin
+function LocationPicker({ onPick }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng);
+    },
+  });
+  return null;
+}
 
 const Stores = () => {
   const navigate = useNavigate();
-  const { role } = useAuth() || {};
-
-  // --- STATE ---
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
-  const [geoLoading, setGeoLoading] = useState(false);
-  
   const [myFranchise, setMyFranchise] = useState(null);
+  
+  // Search state for the map
+  const [mapSearch, setMapSearch] = useState("");
+  const [searchingMap, setSearchingMap] = useState(false);
+
+  const [marker, setMarker] = useState(null);
+  const [mapCenter, setMapCenter] = useState([33.6844, 73.0479]); // Islamabad
 
   const initialFormState = {
-    franchiseId: '',
-    cityId: '',
-    localStoreid: '',
-    name: '',
-    address: '',
-    latitude: '',
-    longitude: ''
+    franchiseId: "",
+    cityId: "",
+    name: "",
+    address: "",
+    latitude: "",
+    longitude: "",
   };
 
   const [formData, setFormData] = useState(initialFormState);
 
-  // --- API HELPER ---
-  const apiCall = useCallback(async (endpoint, method = 'GET', data = null) => {
-    const token = localStorage.getItem('access_token'); 
-    const config = {
+  // API Wrapper
+  const apiCall = useCallback(async (endpoint, method = "GET", data = null) => {
+    const token = localStorage.getItem("access_token");
+    return axios({
       method,
       url: `${BASE_URL}${endpoint}`,
-      headers: { 
+      headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
-      data
-    };
-    return axios(config);
+      data,
+    });
   }, []);
 
-  // --- AUTOMATIC GEOLOCATION ---
-  const autoCaptureLocation = useCallback(() => {
-    if (!navigator.geolocation) return;
-    
-    setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setFormData(prev => ({
-          ...prev,
-          latitude: pos.coords.latitude.toFixed(6),
-          longitude: pos.coords.longitude.toFixed(6)
-        }));
-        setGeoLoading(false);
-        toast.success("Current location synced automatically");
-      },
-      (error) => {
-        console.error("Geo Error:", error);
-        setGeoLoading(false);
-        toast.error("Location access denied. Please enter manually.");
-      },
-      { enableHighAccuracy: true }
-    );
-  }, []);
-
-  // --- DATA FETCHING ---
   const refreshData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch Stores
-      const storeRes = await apiCall('/stores?page=1&limit=100');
+      const [storeRes, meRes] = await Promise.all([
+        apiCall("/stores?page=1&limit=100"),
+        apiCall("/franchises/me/franchise")
+      ]);
       setStores(storeRes.data?.data?.items || storeRes.data?.data || []);
-
-      // 2. Fetch My Franchise Info
-      const meRes = await apiCall('/franchises/me/franchise');
-      // Using your shared structure: response.data.data
-      if (meRes.data?.status === "success") {
-        setMyFranchise(meRes.data.data);
-      }
+      if (meRes.data?.status === "success") setMyFranchise(meRes.data.data);
     } catch (err) {
-      if (err.response?.status === 401) navigate('/login');
-      toast.error("Failed to fetch store data");
+      toast.error("Failed to sync data");
     } finally {
       setLoading(false);
     }
-  }, [apiCall, navigate]);
+  }, [apiCall]);
 
-  useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+  useEffect(() => { refreshData(); }, [refreshData]);
 
-  // --- MODAL ACTIONS ---
-  const openModal = () => {
-    setFormData({
-      ...initialFormState,
-      franchiseId: myFranchise?.id || '',
-      cityId: myFranchise?.cityId || '',
-    });
-    setModalOpen(true);
-    autoCaptureLocation(); // Trigger auto-fetch of Lat/Long immediately
+  // Search Map logic (Nominatim API)
+  const handleMapSearch = async () => {
+    if (!mapSearch) return;
+    setSearchingMap(true);
+    try {
+      const res = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${mapSearch}`);
+      if (res.data && res.data.length > 0) {
+        const { lat, lon } = res.data[0];
+        const newPos = [parseFloat(lat), parseFloat(lon)];
+        setMapCenter(newPos);
+        handlePick({ lat: parseFloat(lat), lng: parseFloat(lon) });
+      } else {
+        toast.error("Location not found");
+      }
+    } catch (err) {
+      toast.error("Search failed");
+    } finally {
+      setSearchingMap(false);
+    }
+  };
+
+  const handlePick = (latlng) => {
+    setMarker(latlng);
+    setFormData(p => ({
+      ...p,
+      latitude: latlng.lat.toFixed(6),
+      longitude: latlng.lng.toFixed(6)
+    }));
   };
 
   const handleCreate = async (e) => {
-  e.preventDefault();
-  setFormLoading(true);
+    e.preventDefault();
+    if (!marker) return toast.error("Please pick a location on the map");
+    setFormLoading(true);
+    try {
+      await apiCall("/stores", "POST", {
+        ...formData,
+        localStoreid: crypto.randomUUID(),
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude),
+        franchiseId: myFranchise?.id,
+        cityId: myFranchise?.cityId
+      });
+      toast.success("Store Hub Registered");
+      setModalOpen(false);
+      refreshData();
+    } catch (err) {
+      toast.error("Creation failed");
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
-  try {
-    const payload = {
-      ...formData,
-      // Generate a valid UUID if the backend requires it
-      localStoreid: crypto.randomUUID(), 
-      latitude: parseFloat(formData.latitude),
-      longitude: parseFloat(formData.longitude)
-    };
-
-    await apiCall('/stores', 'POST', payload);
-    toast.success("Store successfully registered");
-    setModalOpen(false);
-    refreshData();
-  } catch (err) {
-    // This will now catch the error if the UUID is still rejected
-    toast.error(err.response?.data?.data?.localStoreid || "Registration failed");
-  } finally {
-    setFormLoading(false);
-  }
-};
+  const columns = useMemo(() => [
+    {
+      key: "name",
+      label: "Hub Details",
+      render: (v, r) => (
+        <div className="flex gap-3 items-center">
+          <div className="p-2 bg-primary/10 text-primary rounded-lg"><MapIcon size={18} /></div>
+          <div>
+            <div className="font-bold text-gray-900">{v}</div>
+            <div className="text-[10px] font-mono text-gray-400">{r.localStoreid?.slice(0,8)}...</div>
+          </div>
+        </div>
+      ),
+    },
+    { key: "address", label: "Address" },
+    { key: "status", label: "Status", render: (v) => <StatusBadge status={v || "ACTIVE"} /> },
+    {
+      key: "actions",
+      label: "",
+      render: (_, r) => (
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/stores/${r.id}`)}>
+          <Eye size={16} className="mr-2" /> View
+        </Button>
+      ),
+    },
+  ], [navigate]);
 
   return (
     <DashboardLayout>
-      <Header title="Store Hubs" subtitle="Manage and monitor local distribution nodes" />
+      <Header title="Store Management" subtitle="Manage and locate your franchise hubs" />
 
-      <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-        {/* Top Bar */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="relative w-full sm:w-80">
+      <div className="p-6 space-y-4">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border">
+          <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
-            <Input placeholder="Search store nodes..." className="pl-10 h-11 rounded-xl bg-gray-50 border-none" />
+            <Input className="pl-10" placeholder="Filter stores..." />
           </div>
-          <Button onClick={openModal} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 h-11 px-8 rounded-xl shadow-lg shadow-blue-200 transition-all">
+          <Button onClick={() => { setMarker(null); setModalOpen(true); }} className="w-full md:w-auto">
             <Plus size={18} className="mr-2" /> Register New Hub
           </Button>
         </div>
 
-        {/* Store Table */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <DataTable 
-            data={stores} 
-            loading={loading}
-            columns={[
-              {
-                key: 'name',
-                label: 'Hub Identity',
-                render: (val, row) => (
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold uppercase">
-                      <Map size={18} />
-                    </div>
-                    <div>
-                      <div className="font-bold text-gray-900">{val}</div>
-                      <div className="text-[10px] font-mono text-gray-400">LOC-ID: {row.localStoreid}</div>
-                    </div>
-                  </div>
-                )
-              },
-              { key: 'address', label: 'Address', render: (val) => <span className="text-xs text-gray-500 line-clamp-1">{val}</span> },
-              { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val || 'ACTIVE'} /> },
-              { 
-                key: 'actions', 
-                label: '', 
-                render: (_, row) => (
-                  <Button variant="ghost" size="icon" onClick={() => navigate(`/stores/${row.id}`)}>
-                    <Eye size={16} className="text-gray-400 hover:text-blue-600" />
-                  </Button>
-                ) 
-              }
-            ]} 
-          />
-        </div>
+        <DataTable columns={columns} data={stores} loading={loading} />
       </div>
 
-      {/* Register Store Modal */}
       {modalOpen && (
-        <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Register Store Hub" size="lg">
-          <form onSubmit={handleCreate} className="space-y-6 py-2">
+        <Modal isOpen onClose={() => setModalOpen(false)} title="Register Store Hub" size="xl">
+          <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Locked Context Information */}
-            <div className="grid grid-cols-2 gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
-              <div className="space-y-1">
-                <Label className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">Assigned Franchise</Label>
-                <div className="h-10 px-3 flex items-center bg-white rounded-lg border border-blue-200 text-sm font-medium text-gray-700">
-                  {myFranchise?.name || "Loading..."}
+            {/* Left Column: Form Fields */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Store Name</label>
+                <Input 
+                  placeholder="e.g. Blue Area Hub" 
+                  value={formData.name} 
+                  onChange={e => setFormData(p => ({...p, name: e.target.value}))} 
+                  required 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Physical Address</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 size-4 text-gray-400"/>
+                  <textarea 
+                    className="w-full min-h-[80px] pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-primary outline-none"
+                    placeholder="Enter full address..."
+                    value={formData.address}
+                    onChange={e => setFormData(p => ({...p, address: e.target.value}))}
+                    required
+                  />
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">Territory (City)</Label>
-                <div className="h-10 px-3 flex items-center bg-white rounded-lg border border-blue-200 text-sm font-medium text-gray-700">
-                  {myFranchise?.city?.name || "Auto-mapped"}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase text-gray-500 font-bold">Latitude</label>
+                  <Input readOnly className="bg-gray-50" value={formData.latitude}/>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase text-gray-500 font-bold">Longitude</label>
+                  <Input readOnly className="bg-gray-50" value={formData.longitude}/>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-gray-600">Store Hub Name</Label>
-                <Input placeholder="e.g. Blue Area Center" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required className="h-11" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-gray-600">Local ID / Code</Label>
-                <Input placeholder="ST-100" className="font-mono h-11" value={formData.localStoreid} onChange={e => setFormData({...formData, localStoreid: e.target.value})} required />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-gray-600">Physical Address</Label>
-              <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
-                  <Input className="pl-10 h-11" placeholder="Street address, landmarks..." value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />
-              </div>
-            </div>
-
-            {/* Geolocation Section */}
-            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold text-gray-500 flex items-center gap-2">
-                  <Navigation size={14}/> GPS COORDINATES
-                </span>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={autoCaptureLocation} 
-                  disabled={geoLoading} 
-                  className="h-8 text-blue-600 hover:bg-blue-50 text-xs font-bold"
-                >
-                  {geoLoading ? <Loader2 className="size-3 animate-spin mr-2"/> : <Crosshair size={14} className="mr-2"/>}
-                  Refresh GPS
+              <div className="flex gap-3 pt-6">
+                <Button type="button" variant="outline" onClick={()=>setModalOpen(false)} className="flex-1">Cancel</Button>
+                <Button type="submit" disabled={formLoading} className="flex-[2]">
+                  {formLoading ? <Loader2 className="animate-spin" /> : "Confirm & Save Hub"}
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-gray-400 uppercase">Latitude</Label>
-                  <Input type="number" step="any" placeholder="0.000000" className="bg-white h-10 font-mono" value={formData.latitude} onChange={e => setFormData({...formData, latitude: e.target.value})} required />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-gray-400 uppercase">Longitude</Label>
-                  <Input type="number" step="any" placeholder="0.000000" className="bg-white h-10 font-mono" value={formData.longitude} onChange={e => setFormData({...formData, longitude: e.target.value})} required />
-                </div>
-              </div>
-              {geoLoading && <p className="text-[10px] text-blue-500 animate-pulse">Detecting precise satellite location...</p>}
             </div>
 
-            <div className="flex gap-3 pt-4 border-t">
-              <Button type="button" variant="ghost" onClick={() => setModalOpen(false)} className="flex-1 h-12 rounded-xl text-gray-500">Cancel</Button>
-              <Button type="submit" disabled={formLoading || geoLoading} className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-12 font-bold shadow-lg shadow-blue-100">
-                {formLoading ? <Loader2 className="animate-spin mr-2" /> : 'Confirm & Create Hub'}
-              </Button>
+            {/* Right Column: Interactive Map */}
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Search city or area..." 
+                  value={mapSearch} 
+                  onChange={(e) => setMapSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMapSearch())}
+                />
+                <Button type="button" variant="secondary" onClick={handleMapSearch} disabled={searchingMap}>
+                  {searchingMap ? <Loader2 className="size-4 animate-spin" /> : <Search size={16} />}
+                </Button>
+              </div>
+
+              <div className="h-[350px] rounded-xl overflow-hidden border relative group">
+                <MapContainer center={mapCenter} zoom={13} style={{height:"100%", width:"100%"}}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
+                  <MapResizer />
+                  <LocationPicker onPick={handlePick}/>
+                  {marker && <Marker position={marker}/>}
+                </MapContainer>
+                <div className="absolute bottom-2 left-2 z-[1000] bg-white/90 px-2 py-1 rounded text-[10px] font-medium shadow-sm">
+                  Click on map to set store location
+                </div>
+              </div>
             </div>
+
           </form>
         </Modal>
       )}
