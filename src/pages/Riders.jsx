@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import {
+  Plus, Eye, X, Loader2, Search
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+// Components
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import DataTable from '../components/common/DataTable';
@@ -10,98 +15,66 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import {
-  Plus, Eye, Upload, FileText, X, Loader2, Search, ShieldCheck, Mail, Lock
-} from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-import { useRiders } from '../hooks/useRiders';
-import { useCities } from '../hooks/useCities';
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
 } from '../components/ui/select';
+
+// Hooks & Utils
+import { useRiders } from '../hooks/useRiders';
+import { useCities } from '../hooks/useCities';
+import { useFranchises } from '../hooks/useFranchises'; // Updated to use hook
 import { uploadFiles } from '../utils/fileUpload';
-import { toast } from 'sonner';
+
+const INITIAL_FORM_STATE = {
+  fullName: '',
+  phone: '',
+  vehicleType: 'BIKE',
+  franchiseId: '',
+  cityId: '',
+  email: '',
+  password: ''
+};
 
 const Riders = () => {
   const navigate = useNavigate();
-  const { token } = useAuth();
-
+  
+  // Data Hooks
   const { riders, loading: ridersLoading, fetchRiders, createRider } = useRiders();
   const { cities, fetchCities } = useCities();
+  const { franchises, loading: franchisesLoading, fetchFranchises } = useFranchises();
 
-  /** ---------------- Franchise ---------------- */
-  const [franchises, setFranchises] = useState([]);
-  const [myFranchiseLoading, setMyFranchiseLoading] = useState(false);
-
-  const fetchMyFranchise = async () => {
-    setMyFranchiseLoading(true);
-    const accessToken = localStorage.getItem('access_token');
-
-    try {
-      const res = await axios.get(
-        'https://api.barqibazar.org/franchise/api/franchises/me/franchise',
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-
-      if (res.data?.status === 'success' && res.data?.data) {
-        // normalize to array even if single
-        setFranchises([res.data.data]);
-      }
-    } catch (err) {
-      if (err.response?.status === 401) {
-        toast.error('Session expired');
-        navigate('/login');
-      }
-    } finally {
-      setMyFranchiseLoading(false);
-    }
-  };
-
-  /** ---------------- State ---------------- */
+  // UI State
   const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [docLoading, setDocLoading] = useState(false);
-  const fileInputRef = useRef(null);
-
-  const initialFormState = {
-    fullName: '',
-    phone: '',
-    vehicleType: 'BIKE',
-    franchiseId: '',
-    cityId: '',
-    email: '',
-    password: ''
-  };
-
-  const [formData, setFormData] = useState(initialFormState);
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [riderDocuments, setRiderDocuments] = useState([]);
   const [selectedDocType, setSelectedDocType] = useState('CNIC');
+  const fileInputRef = useRef(null);
 
   /** ---------------- Init ---------------- */
   useEffect(() => {
     fetchRiders();
     fetchCities({ page: 1, limit: 100 });
-    fetchMyFranchise();
+    fetchFranchises({ page: 1, limit: 100 }); // Mirrors city logic
   }, []);
 
-  /** ---------------- Modal ---------------- */
+  /** ---------------- Handlers ---------------- */
   const openModal = () => {
-    const defaultFranchise = franchises[0];
-
+    // Defaulting to first franchise if available
+    const defaultFranchise = franchises?.[0];
     setFormData({
-      ...initialFormState,
+      ...INITIAL_FORM_STATE,
       franchiseId: defaultFranchise?.id || '',
       cityId: defaultFranchise?.cityId || ''
     });
-
     setRiderDocuments([]);
     setModalOpen(true);
   };
 
-  /** ---------------- Files ---------------- */
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -109,17 +82,15 @@ const Riders = () => {
     setDocLoading(true);
     try {
       const uploaded = await uploadFiles(files);
-
       const mapped = uploaded.map(f => ({
         documentType: selectedDocType,
         documentUrl: f.url,
         originalName: f.originalName,
         id: crypto.randomUUID()
       }));
-
-      setRiderDocuments(p => [...p, ...mapped]);
+      setRiderDocuments(prev => [...prev, ...mapped]);
       toast.success('Document attached');
-    } catch {
+    } catch (err) {
       toast.error('Upload failed');
     } finally {
       setDocLoading(false);
@@ -127,43 +98,39 @@ const Riders = () => {
     }
   };
 
-  /** ---------------- Submit ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!formData.franchiseId || !formData.cityId) {
-      return toast.error('Franchise & City required');
+      return toast.error('Franchise and City are required');
     }
 
     setFormLoading(true);
-
     try {
       await createRider({
         ...formData,
-        documents: riderDocuments.map(d => ({
-          documentType: d.documentType,
-          documentUrl: d.documentUrl
+        documents: riderDocuments.map(({ documentType, documentUrl }) => ({
+          documentType,
+          documentUrl
         }))
       });
-
-      toast.success('Rider created');
+      toast.success('Rider created successfully');
       setModalOpen(false);
       fetchRiders();
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Failed');
+      toast.error(err?.response?.data?.message || 'Failed to create rider');
     } finally {
       setFormLoading(false);
     }
   };
 
-  /** ---------------- Table ---------------- */
+  /** ---------------- Table Config ---------------- */
   const columns = useMemo(() => [
     {
       key: 'fullName',
       label: 'Rider',
       render: (v, r) => (
         <div className="flex gap-3">
-          <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center font-bold text-green-700">
             {v?.[0]}
           </div>
           <div>
@@ -181,7 +148,7 @@ const Riders = () => {
       label: '',
       render: (_, r) => (
         <Button size="sm" variant="ghost" onClick={() => navigate(`/riders/${r.id}`)}>
-          <Eye size={16} />
+          <Eye size={16} className="text-gray-500" />
         </Button>
       )
     }
@@ -189,17 +156,17 @@ const Riders = () => {
 
   return (
     <DashboardLayout>
-      <Header title="Fleet Operations" subtitle="Manage riders" />
+      <Header title="Fleet Operations" subtitle="Manage your delivery personnel" />
 
       <div className="p-6 space-y-6">
-        <div className="flex justify-between bg-white p-4 rounded-2xl border">
+        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border shadow-sm">
           <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" />
-            <Input className="pl-10" placeholder="Search..." />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input className="pl-10" placeholder="Search riders..." />
           </div>
 
-          <Button onClick={openModal}>
-            <Plus size={16} className="mr-2" /> Initialize Rider
+          <Button onClick={openModal} className="gap-2">
+            <Plus size={18} /> Initialize Rider
           </Button>
         </div>
 
@@ -207,103 +174,106 @@ const Riders = () => {
       </div>
 
       {modalOpen && (
-        <Modal isOpen onClose={() => setModalOpen(false)} title="Create Rider" size="lg">
+        <Modal isOpen onClose={() => setModalOpen(false)} title="Create New Rider" size="lg">
           <form onSubmit={handleSubmit} className="space-y-4">
-
-            {/* Franchise + City */}
+            
+            {/* Logic: Selection of Franchise auto-fills City */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-1.5">
                 <Label>Franchise</Label>
                 <Select
                   value={formData.franchiseId}
                   onValueChange={(v) => {
-                    const f = franchises.find(x => x.id === v);
-                    setFormData(p => ({
-                      ...p,
-                      franchiseId: v,
-                      cityId: f?.cityId || ''
-                    }));
+                    const selected = franchises.find(f => f.id === v);
+                    setFormData(p => ({ ...p, franchiseId: v, cityId: selected?.cityId || p.cityId }));
                   }}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select franchise" />
+                  <SelectTrigger disabled={franchisesLoading}>
+                    <SelectValue placeholder="Select Franchise" />
                   </SelectTrigger>
                   <SelectContent>
-                    {franchises.map(f => (
-                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                    ))}
+                    {franchises.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div>
+              <div className="space-y-1.5">
                 <Label>City</Label>
                 <Select
                   value={formData.cityId}
                   onValueChange={v => setFormData(p => ({ ...p, cityId: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select city" />
+                    <SelectValue placeholder="Select City" />
                   </SelectTrigger>
                   <SelectContent>
-                    {cities.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
+                    {cities.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Basic Info */}
-            <Input placeholder="Full name" value={formData.fullName} onChange={e => setFormData(p => ({ ...p, fullName: e.target.value }))} />
-            <Input placeholder="Phone" value={formData.phone} onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-4">
+              <Input placeholder="Full Name" value={formData.fullName} onChange={e => setFormData(p => ({ ...p, fullName: e.target.value }))} />
+              <Input placeholder="Phone Number" value={formData.phone} onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))} />
+            </div>
 
-            <Select value={formData.vehicleType} onValueChange={v => setFormData(p => ({ ...p, vehicleType: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BIKE">Bike</SelectItem>
-                <SelectItem value="MOTORBIKE">Motorbike</SelectItem>
-                <SelectItem value="VAN">Van</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} />
-            <Input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} />
-
-            {/* Docs */}
-            <div className="border p-3 rounded-xl">
-              <div className="flex gap-2">
-                <Select value={selectedDocType} onValueChange={setSelectedDocType}>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-1">
+                <Select value={formData.vehicleType} onValueChange={v => setFormData(p => ({ ...p, vehicleType: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BIKE">Bike</SelectItem>
+                    <SelectItem value="MOTORBIKE">Motorbike</SelectItem>
+                    <SelectItem value="VAN">Van</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Input className="col-span-2" type="email" placeholder="Email Address" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} />
+            </div>
+
+            <Input type="password" placeholder="Account Password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} />
+
+            {/* Document Upload Section */}
+            <div className="border border-dashed p-4 rounded-xl bg-gray-50/50">
+              <Label className="mb-2 block text-xs uppercase text-gray-500">Documents</Label>
+              <div className="flex gap-2 mb-3">
+                <Select value={selectedDocType} onValueChange={setSelectedDocType}>
+                  <SelectTrigger className="w-[200px] bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CNIC">CNIC</SelectItem>
                     <SelectItem value="DRIVING_LICENSE">License</SelectItem>
-                    <SelectItem value="VEHICLE_REGISTRATION">Registration</SelectItem>
+                    <SelectItem value="VEHICLE_REGISTRATION">Vehicle Reg</SelectItem>
                   </SelectContent>
                 </Select>
 
-                <Button type="button" onClick={() => fileInputRef.current.click()}>
-                  Upload
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => fileInputRef.current.click()}
+                  disabled={docLoading}
+                >
+                  {docLoading ? <Loader2 className="animate-spin mr-2" size={14} /> : 'Select File'}
                 </Button>
-
                 <input hidden ref={fileInputRef} type="file" onChange={handleFileSelect} />
               </div>
 
-              {riderDocuments.map(d => (
-                <div key={d.id} className="flex justify-between mt-2 text-xs">
-                  {d.originalName}
-                  <X onClick={() => setRiderDocuments(p => p.filter(x => x.id !== d.id))} />
-                </div>
-              ))}
+              <div className="space-y-2">
+                {riderDocuments.map(d => (
+                  <div key={d.id} className="flex justify-between items-center bg-white p-2 px-3 rounded-lg border text-sm">
+                    <span className="font-medium">{d.documentType}: <span className="text-gray-500 font-normal">{d.originalName}</span></span>
+                    <X className="cursor-pointer text-red-400 hover:text-red-600" size={14} onClick={() => setRiderDocuments(p => p.filter(x => x.id !== d.id))} />
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-4 border-t">
               <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-              <Button disabled={formLoading} type="submit">
+              <Button disabled={formLoading} type="submit" className="min-w-[120px]">
                 {formLoading ? <Loader2 className="animate-spin" /> : 'Create Rider'}
               </Button>
             </div>
-
           </form>
         </Modal>
       )}
