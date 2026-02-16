@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { 
-  Building2, Store, Bike, Users, TrendingUp, CheckCircle, 
-  MapPin, AlertCircle, ArrowRight, PieChart, Activity, 
+import {
+  Building2, Store, Bike, Users, TrendingUp, CheckCircle,
+  MapPin, AlertCircle, ArrowRight, PieChart, Activity,
   Wallet, ShieldAlert, Zap, Globe, BarChart3, Landmark
 } from 'lucide-react';
 
@@ -28,7 +28,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user, isAdmin, isFranchiseAdmin } = useAuth();
   const [walletBalance, setWalletBalance] = useState(0);
-  
+
   const { cities, loading: citiesLoading, fetchCities } = useCities();
   const { franchises, loading: franchisesLoading, fetchFranchises } = useFranchises();
   const { riders, loading: ridersLoading, fetchRiders } = useRiders();
@@ -36,7 +36,16 @@ const Dashboard = () => {
   // Sync Financial Intelligence
   const loadFinancials = useCallback(async () => {
     try {
-      const id = isAdmin() ? 'admin-root' : (user?.franchiseId || user?.franchise?.id);
+     const id = isAdmin()
+  ? 'admin-root'
+  : user?.franchiseId
+    || user?.franchise_id
+    || user?.franchise?.id;
+
+      if (!id) {
+        console.warn("Wallet ID missing:", user);
+        return;
+      }
       const res = await axios.get(`${WALLET_BASE}/wallets/${id}?currency=PKR`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
       });
@@ -64,7 +73,7 @@ const Dashboard = () => {
     const total = fleet.length;
     const active = fleet.filter(r => ['ACTIVE', 'APPROVED'].includes(r.status)).length;
     const pending = fleet.filter(r => r.status === 'APPLIED').length;
-    
+
     // Calculate Capacity (assuming 100 as base if not defined)
     const cap = user?.franchise?.maxActiveRiders || 100;
     const utilization = Math.round((active / cap) * 100);
@@ -104,18 +113,18 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <Header 
-        title="Operations Intelligence" 
-        subtitle={`Live Command Data • ${user?.fullName || 'System Admin'}`} 
+      <Header
+        title="Operations Intelligence"
+        subtitle={`Live Command Data • ${user?.fullName || 'System Admin'}`}
       />
-      
+
       <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
+
         {/* Tier 1: Financial & Deployment Summary */}
         <StatsCards cards={cards} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Tier 2: Real-time Operational Stream */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
@@ -133,7 +142,7 @@ const Dashboard = () => {
                   Full Fleet <ArrowRight size={16} className="ml-2" />
                 </Button>
               </div>
-              
+
               <div className="divide-y divide-slate-50">
                 {riders?.slice(0, 5).map((rider) => (
                   <div key={rider.id} className="p-5 flex items-center justify-between hover:bg-slate-50/80 transition-all cursor-pointer group" onClick={() => navigate(`/riders/${rider.id}`)}>
@@ -188,7 +197,7 @@ const Dashboard = () => {
 
           {/* Sidebar Intelligence */}
           <div className="space-y-8">
-            
+
             {/* Fleet Composition Mix */}
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -225,11 +234,11 @@ const Dashboard = () => {
                 <h4 className="text-2xl font-bold mb-2">Node: {user?.franchise?.code || 'Barqi-Root'}</h4>
                 <p className="text-sm text-slate-400 leading-relaxed mb-6">Currently overseeing {analytics.totalCount} assets in the regional mesh network.</p>
                 <div className="space-y-4">
-                   <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      <span>Operational Efficiency</span>
-                      <span className="text-white">{analytics.utilization}%</span>
-                   </div>
-                   <Progress value={analytics.utilization} className="h-1.5 bg-slate-800" />
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    <span>Operational Efficiency</span>
+                    <span className="text-white">{analytics.utilization}%</span>
+                  </div>
+                  <Progress value={analytics.utilization} className="h-1.5 bg-slate-800" />
                 </div>
               </div>
               <Activity className="absolute -right-8 -bottom-8 text-white/5 group-hover:text-white/10 transition-all duration-1000 rotate-12" size={200} />
@@ -237,14 +246,14 @@ const Dashboard = () => {
 
             {/* Admin Utility Links */}
             <div className="grid grid-cols-2 gap-4">
-               <Button onClick={() => navigate('/stores')} variant="outline" className="h-28 rounded-[2rem] flex flex-col gap-3 border-slate-200 hover:border-indigo-500 transition-all group shadow-sm">
-                 <Store size={24} className="text-indigo-500 group-hover:scale-110 transition-transform" />
-                 <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-600">Hubs</span>
-               </Button>
-               <Button onClick={() => navigate('/franchise-admins')} variant="outline" className="h-28 rounded-[2rem] flex flex-col gap-3 border-slate-200 hover:border-blue-500 transition-all group shadow-sm">
-                 <Users size={24} className="text-blue-500 group-hover:scale-110 transition-transform" />
-                 <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-blue-600">Admins</span>
-               </Button>
+              <Button onClick={() => navigate('/stores')} variant="outline" className="h-28 rounded-[2rem] flex flex-col gap-3 border-slate-200 hover:border-indigo-500 transition-all group shadow-sm">
+                <Store size={24} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-600">Hubs</span>
+              </Button>
+              <Button onClick={() => navigate('/franchise-admins')} variant="outline" className="h-28 rounded-[2rem] flex flex-col gap-3 border-slate-200 hover:border-blue-500 transition-all group shadow-sm">
+                <Users size={24} className="text-blue-500 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-black uppercase tracking-widest text-slate-500 group-hover:text-blue-600">Admins</span>
+              </Button>
             </div>
           </div>
         </div>

@@ -30,6 +30,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+
+          {/* <Route path="/forgot-password" element={<ForgotPassword />} /> */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
             {/* Core Dashboard */}

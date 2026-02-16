@@ -28,6 +28,9 @@ import { useCities } from '../hooks/useCities';
 import { useFranchises } from '../hooks/useFranchises'; // Updated to use hook
 import { uploadFiles } from '../utils/fileUpload';
 
+//   Loding
+import TableSkeleton from '../components/common/TableSkeleton';
+
 const INITIAL_FORM_STATE = {
   fullName: '',
   phone: '',
@@ -40,7 +43,7 @@ const INITIAL_FORM_STATE = {
 
 const Riders = () => {
   const navigate = useNavigate();
-  
+
   // Data Hooks
   const { riders, loading: ridersLoading, fetchRiders, createRider } = useRiders();
   const { cities, fetchCities } = useCities();
@@ -53,7 +56,9 @@ const Riders = () => {
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [riderDocuments, setRiderDocuments] = useState([]);
   const [selectedDocType, setSelectedDocType] = useState('CNIC');
+  const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef(null);
+
 
   /** ---------------- Init ---------------- */
   useEffect(() => {
@@ -122,6 +127,15 @@ const Riders = () => {
       setFormLoading(false);
     }
   };
+  const filteredRiders = useMemo(() => {
+    if (!searchTerm) return riders;
+
+    return riders.filter(r =>
+      r.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [riders, searchTerm]);
 
   /** ---------------- Table Config ---------------- */
   const columns = useMemo(() => [
@@ -162,7 +176,13 @@ const Riders = () => {
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl border shadow-sm">
           <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input className="pl-10" placeholder="Search riders..." />
+            <Input
+              className="pl-10"
+              placeholder="Search riders..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
           </div>
 
           <Button onClick={openModal} className="gap-2">
@@ -170,13 +190,19 @@ const Riders = () => {
           </Button>
         </div>
 
-        <DataTable columns={columns} data={riders} loading={ridersLoading} />
+        {ridersLoading ? (
+          <TableSkeleton rows={6} />
+        ) : (
+          <DataTable columns={columns} data={filteredRiders} />
+
+        )}
+
       </div>
 
       {modalOpen && (
         <Modal isOpen onClose={() => setModalOpen(false)} title="Create New Rider" size="lg">
           <form onSubmit={handleSubmit} className="space-y-4">
-            
+
             {/* Logic: Selection of Franchise auto-fills City */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -247,9 +273,9 @@ const Riders = () => {
                   </SelectContent>
                 </Select>
 
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => fileInputRef.current.click()}
                   disabled={docLoading}
                 >
