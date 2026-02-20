@@ -14,21 +14,11 @@ import StatusBadge from '../components/common/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '../components/ui/select';
-
-// Hooks & Utils
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useRiders } from '../hooks/useRiders';
 import { useCities } from '../hooks/useCities';
-import { useFranchises } from '../hooks/useFranchises'; // Updated to use hook
+import { useFranchises } from '../hooks/useFranchises';
 import { uploadFiles } from '../utils/fileUpload';
-
-//   Loding
 import TableSkeleton from '../components/common/TableSkeleton';
 
 const INITIAL_FORM_STATE = {
@@ -44,12 +34,10 @@ const INITIAL_FORM_STATE = {
 const Riders = () => {
   const navigate = useNavigate();
 
-  // Data Hooks
   const { riders, loading: ridersLoading, fetchRiders, createRider } = useRiders();
   const { cities, fetchCities } = useCities();
   const { franchises, loading: franchisesLoading, fetchFranchises } = useFranchises();
 
-  // UI State
   const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [docLoading, setDocLoading] = useState(false);
@@ -59,17 +47,13 @@ const Riders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef(null);
 
-
-  /** ---------------- Init ---------------- */
   useEffect(() => {
     fetchRiders();
     fetchCities({ page: 1, limit: 100 });
-    fetchFranchises({ page: 1, limit: 100 }); // Mirrors city logic
+    fetchFranchises({ page: 1, limit: 100 });
   }, []);
 
-  /** ---------------- Handlers ---------------- */
   const openModal = () => {
-    // Defaulting to first franchise if available
     const defaultFranchise = franchises?.[0];
     setFormData({
       ...INITIAL_FORM_STATE,
@@ -137,7 +121,6 @@ const Riders = () => {
     );
   }, [riders, searchTerm]);
 
-  /** ---------------- Table Config ---------------- */
   const columns = useMemo(() => [
     {
       key: 'fullName',
@@ -203,7 +186,6 @@ const Riders = () => {
         <Modal isOpen onClose={() => setModalOpen(false)} title="Create New Rider" size="lg">
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* Logic: Selection of Franchise auto-fills City */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Franchise</Label>
@@ -260,7 +242,6 @@ const Riders = () => {
 
             <Input type="password" placeholder="Account Password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} />
 
-            {/* Document Upload Section */}
             <div className="border border-dashed p-4 rounded-xl bg-gray-50/50">
               <Label className="mb-2 block text-xs uppercase text-gray-500">Documents</Label>
               <div className="flex gap-2 mb-3">

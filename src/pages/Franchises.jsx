@@ -4,7 +4,6 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import StatusBadge from '../components/common/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -14,31 +13,30 @@ import { useCities } from '../hooks/useCities';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 const Franchises = () => {
-  // Use "Fetch All" hooks without pagination state
   const { franchises, loading, fetchFranchises, createFranchise, updateFranchise, terminateFranchise } = useFranchises();
   const { cities, fetchCities } = useCities();
-  
+
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedFranchise, setSelectedFranchise] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
-  
-  const [formData, setFormData] = useState({ 
-    cityId: '', 
-    name: '', 
-    code: '', 
-    maxActiveRiders: '' 
+  const [terminateLoading, setTerminateLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    cityId: '',
+    name: '',
+    code: '',
+    maxActiveRiders: ''
   });
 
   useEffect(() => {
-    fetchCities();     // GET /api/cities
-    fetchFranchises(); // GET /api/franchises
+    fetchCities();
+    fetchFranchises();
   }, []);
 
   const columns = [
-    { 
-      key: 'name', 
-      label: 'Franchise Node', 
+    {
+      key: 'name',
+      label: 'Franchise Node',
       render: (val) => (
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -48,24 +46,24 @@ const Franchises = () => {
         </div>
       )
     },
-    { 
-      key: 'code', 
-      label: 'Node ID', 
-      render: (val) => <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">{val}</code> 
+    {
+      key: 'code',
+      label: 'Node ID',
+      render: (val) => <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">{val}</code>
     },
-    { 
-      key: 'city', 
-      label: 'Region', 
+    {
+      key: 'city',
+      label: 'Region',
       render: (val) => (
         <div className="flex items-center gap-2 text-slate-500">
           <MapPin size={14} />
           <span className="text-sm">{val?.name || 'Global'}</span>
         </div>
-      ) 
+      )
     },
-    { 
-      key: 'maxActiveRiders', 
-      label: 'Rider Cap', 
+    {
+      key: 'maxActiveRiders',
+      label: 'Rider Cap',
       render: (val) => (
         <div className="flex items-center gap-2 font-semibold text-slate-600">
           <Users size={14} className="text-slate-400" />
@@ -73,10 +71,10 @@ const Franchises = () => {
         </div>
       )
     },
-    { 
-      key: 'createdAt', 
-      label: 'Established', 
-      render: (val) => val ? new Date(val).toLocaleDateString() : '-' 
+    {
+      key: 'createdAt',
+      label: 'Established',
+      render: (val) => val ? new Date(val).toLocaleDateString() : '-'
     },
     {
       key: 'actions',
@@ -120,7 +118,7 @@ const Franchises = () => {
         code: formData.code,
         maxActiveRiders: parseInt(formData.maxActiveRiders) || 0,
       };
-      
+
       if (selectedFranchise) {
         await updateFranchise(selectedFranchise.id, data); // PATCH /api/franchises/{{id}}
       } else {
@@ -137,12 +135,15 @@ const Franchises = () => {
   };
 
   const handleConfirmTerminate = async () => {
-    if (selectedFranchise) {
-      try {
-        await terminateFranchise(selectedFranchise.id); // DELETE /api/franchises/{{id}}/hard
-      } catch (error) {
-        console.error('Error terminating franchise:', error);
-      }
+    if (!selectedFranchise) return;
+
+    try {
+      setTerminateLoading(true);
+      await terminateFranchise(selectedFranchise.id);
+    } catch (error) {
+      console.error('Error terminating franchise:', error);
+    } finally {
+      setTerminateLoading(false);
       setConfirmOpen(false);
       setSelectedFranchise(null);
     }
@@ -157,7 +158,7 @@ const Franchises = () => {
   return (
     <DashboardLayout>
       <Header title="Franchise Nodes" subtitle="Monitor and scale operational capacity across regions" />
-      
+
       <div className="p-8 max-w-7xl mx-auto space-y-6">
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -167,18 +168,18 @@ const Franchises = () => {
               </div>
               <h2 className="text-sm font-black uppercase tracking-widest text-slate-600">Node Directory</h2>
             </div>
-            <Button onClick={handleOpenModal} className="rounded-xl h-11 px-6 shadow-xl shadow-blue-100 transition-all hover:scale-105 active:scale-95">
+            <Button onClick={handleOpenModal} disabled={loading} className="rounded-xl h-11 px-6 shadow-xl shadow-blue-100 transition-all hover:scale-105 active:scale-95">
               <Plus size={18} className="mr-2" /> Add Franchise Node
             </Button>
           </div>
 
-          <DataTable 
-            columns={columns} 
-            data={franchises} 
-            loading={loading} 
+          <DataTable
+            columns={columns}
+            data={franchises}
+            loading={loading}
             emptyMessage="No franchise nodes found in system"
           />
-          
+
           <div className="p-4 border-t border-slate-50 bg-slate-50/30 text-center">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
               Total Active Nodes: {franchises.length}
@@ -187,9 +188,9 @@ const Franchises = () => {
         </div>
       </div>
 
-      <Modal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
         title={selectedFranchise ? 'Reconfigure Franchise' : 'Provision New Franchise'}
       >
         <form onSubmit={handleSubmit} className="space-y-5 py-4">
@@ -240,12 +241,13 @@ const Franchises = () => {
         </form>
       </Modal>
 
-      <ConfirmDialog 
-        isOpen={confirmOpen} 
-        onClose={() => setConfirmOpen(false)} 
-        onConfirm={handleConfirmTerminate} 
-        title="Decommission Franchise" 
-        message={`Warning: You are about to terminate operational node ${selectedFranchise?.name}. This action cannot be undone.`} 
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmTerminate}
+        title="Decommission Franchise"
+        message={`Warning: You are about to terminate operational node ${selectedFranchise?.name}. This action cannot be undone.`}
+        loading={terminateLoading}
       />
     </DashboardLayout>
   );

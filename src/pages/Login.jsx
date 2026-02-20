@@ -4,24 +4,13 @@ import { useAuth } from '../contexts/AuthContext'; // Path updated to match your
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { 
-  Eye, 
-  EyeOff, 
-  Store, 
-  MapPin, 
-  ArrowRight, 
-  Activity,
-  Building2,
-  Lock,
-  ShieldCheck
-} from 'lucide-react';
+import { Eye, EyeOff, Store, MapPin, ArrowRight, Activity, Building2, Lock, ShieldCheck } from 'lucide-react';
 import { toast } from '../hooks/use-toast';
 import logo from '../../public/barqibazarimg.jpeg';
 
 const Login = () => {
   const navigate = useNavigate();
-  // Destructure 'login' from the context
-  const { login } = useAuth(); 
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,10 +19,10 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast({
-        title: "Missing Credentials", 
+        title: "Missing Credentials",
         description: "Please enter both email and password.",
         variant: "destructive"
       });
@@ -43,24 +32,18 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Use the login function from AuthContext
-      // This handles the fetch, localStorage (access_token), and state update
       const result = await login(email, password);
-
       if (result.success) {
         toast({
-          title: "Access Granted", 
+          title: "Access Granted",
           description: "Welcome back to Barqi Operations.",
         });
-        
-        // Navigate to dashboard once the global state is updated
         navigate('/dashboard');
       }
-
     } catch (error) {
       console.error("Login Error:", error);
       toast({
-        title: "Login Failed", 
+        title: "Login Failed",
         description: error.message || "Unable to connect to the server.",
         variant: "destructive"
       });
@@ -71,8 +54,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex selection:bg-orange-100 selection:text-orange-900 font-sans bg-gray-50">
-      
-      {/* LEFT PANEL - Franchise & Operations Theme */}
       <div className="hidden lg:flex lg:w-1/2 bg-green-950 p-12 flex-col justify-between relative overflow-hidden text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-green-900 via-green-950 to-black z-0" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff10_1px,transparent_1px)] [background-size:24px_24px] z-0 pointer-events-none opacity-40" />
@@ -93,7 +74,7 @@ const Login = () => {
               </div>
               <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
             </div>
-            
+
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-xs text-white/60">
                 <MapPin className="w-3.5 h-3.5 text-orange-400" />
@@ -119,8 +100,8 @@ const Login = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">Barqi Operations</h1>
             <div className="flex items-center gap-2">
-               <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-               <p className="text-xs text-green-200/80 font-medium uppercase tracking-wider">Franchise Portal</p>
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+              <p className="text-xs text-green-200/80 font-medium uppercase tracking-wider">Franchise Portal</p>
             </div>
           </div>
         </div>
@@ -163,23 +144,22 @@ const Login = () => {
         </div>
       </div>
 
-      {/* RIGHT PANEL - Login Form */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 relative">
-         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none"></div>
 
         <div className="w-full max-w-[440px] bg-white p-8 sm:p-12 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100 relative overflow-hidden z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-600 via-orange-500 to-green-600" />
 
           <div className="lg:hidden flex flex-col items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-2xl bg-white shadow-md border border-gray-100 p-2">
-               <img src={logo} alt="Barqi Logo" className="w-full h-full object-contain" />
+              <img src={logo} alt="Barqi Logo" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-xl font-bold text-gray-900">Franchise Portal</h1>
           </div>
 
           <div className="mb-8 text-center lg:text-left space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-100 text-orange-700 text-[10px] font-bold uppercase tracking-wide mb-2">
-                <Building2 className="w-3 h-3" /> Admin Access
+              <Building2 className="w-3 h-3" /> Admin Access
             </div>
             <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Welcome Back</h2>
             <p className="text-gray-500 text-sm">
@@ -252,7 +232,7 @@ const Login = () => {
 
           <div className="mt-8 text-center pt-6 border-t border-gray-100">
             <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
-              <Lock className="w-3 h-3" /> 
+              <Lock className="w-3 h-3" />
               Secured by Barqi IAM
             </p>
           </div>

@@ -2,36 +2,16 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Trash2,
-  Upload,
-  Wallet,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  History,
-  FileText,
-  ShieldCheck,
-  MoreVertical,
-  Loader2,
-} from "lucide-react";
-
+import { ArrowLeft, Trash2, Upload, Wallet, ArrowUpCircle, ArrowDownCircle, History, FileText, ShieldCheck, Loader2, } from "lucide-react";
 import Header from "../components/common/Header";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import StatusBadge from "../components/common/StatusBadge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-
 import { useAuth } from "../hooks/useAuth";
 import { useRiders } from "../hooks/useRiders";
 import { useRiderDocs } from "../hooks/useRiderDocs";
@@ -48,26 +28,21 @@ export default function RiderDetail() {
   const { rider, fetchRider, updateRider, changeStatus } = useRiders();
   const { createDocument, deleteDocument } = useRiderDocs();
 
-  // Optimized API Instance
   const api = useMemo(() => axios.create({
     baseURL: WALLET_BASE,
     headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
   }), []);
 
-  // UI State
   const [tab, setTab] = useState("info");
   const [profile, setProfile] = useState({ fullName: "", phone: "", email: "", vehicleType: "" });
   const [docType, setDocType] = useState("CNIC");
   const fileInput = useRef(null);
 
-  // Wallet State
   const [wallet, setWallet] = useState(null);
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [creditAmount, setCreditAmount] = useState("");
   const [creditReason, setCreditReason] = useState("ADMIN_TOPUP");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ---------------- Data Fetching ----------------
 
   const loadRider = useCallback(async () => {
     const data = await fetchRider(id);
@@ -84,12 +59,10 @@ export default function RiderDetail() {
   const loadWallet = useCallback(async () => {
     setLoadingWallet(true);
     try {
-      // Fetching wallet and transaction history in one efficient call
       const res = await api.get(`/wallets/${id}?currency=PKR`);
       setWallet(res.data?.data);
     } catch (e) {
       if (e.response?.status === 404) {
-        // Auto-create wallet if missing
         const created = await api.post("/wallets", {
           ownerId: id,
           ownerType: "RIDER",
@@ -110,14 +83,11 @@ export default function RiderDetail() {
     loadWallet();
   }, [loadRider, loadWallet]);
 
-  // ---------------- Handlers ----------------
-
   const handleCredit = async () => {
     if (!creditAmount || parseFloat(creditAmount) <= 0) return toast.error("Enter a valid amount");
     setIsSubmitting(true);
 
     try {
-      // Using idempotencyKey to prevent duplicate transactions
       await api.post(`/wallets/owner/${id}/credit`, {
         amount: parseFloat(creditAmount),
         reason: creditReason,
@@ -128,7 +98,7 @@ export default function RiderDetail() {
 
       toast.success(`Successfully credited PKR ${creditAmount}`);
       setCreditAmount("");
-      loadWallet(); // Refresh balance and ledger
+      loadWallet();
     } catch (e) {
       toast.error("Transaction failed: " + (e.response?.data?.message || "Server Error"));
     } finally {
@@ -158,14 +128,19 @@ export default function RiderDetail() {
       <Header title="Rider Profile" subtitle={`ID: ${id?.slice(0, 8)}...`} />
 
       <div className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Top Header Bar */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate("/riders")}>
               <ArrowLeft size={20} />
             </Button>
             <div>
-              <h2 className="text-xl font-bold">{profile.fullName || "Loading..."}</h2>
+              <h2 className="text-xl font-bold">
+                {profile.fullName ? (
+                  profile.fullName
+                ) : (
+                  <div className="h-6 w-40 bg-muted rounded animate-pulse" />
+                )}
+              </h2>
               <div className="flex gap-2 items-center text-sm text-muted-foreground font-mono">
                 <span>{profile.phone}</span> • <StatusBadge status={rider?.status} />
               </div>
@@ -174,7 +149,11 @@ export default function RiderDetail() {
           <div className="flex flex-col items-end">
             <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Current Balance</p>
             <p className="text-2xl font-mono font-bold text-primary">
-              PKR {wallet?.balance?.toLocaleString() ?? "0.00"}
+              {loadingWallet ? (
+                <span className="inline-block h-8 w-32 bg-muted rounded animate-pulse" />
+              ) : (
+                <>PKR {wallet?.balance?.toLocaleString()}</>
+              )}
             </p>
           </div>
         </div>
@@ -187,16 +166,21 @@ export default function RiderDetail() {
             {canAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
           </TabsList>
 
-          {/* FINANCIALS TAB */}
           <TabsContent value="wallet" className="space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
               <Card className="bg-primary text-primary-foreground border-none shadow-lg">
-                <CardHeader><CardTitle className="text-sm font-medium flex items-center gap-2"><Wallet size={16}/> Account Stats</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm font-medium flex items-center gap-2"><Wallet size={16} /> Account Stats</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold font-mono">Rs. {wallet?.balance?.toLocaleString()}</div>
+                  <div className="text-3xl font-bold font-mono">
+                    {loadingWallet ? (
+                      <span className="inline-block h-8 w-32 bg-primary/20 rounded animate-pulse" />
+                    ) : (
+                      <>Rs. {wallet?.balance?.toLocaleString()}</>
+                    )}
+                  </div>
                   <div className="mt-4 space-y-1">
-                     <p className="text-[10px] opacity-70">STATUS: {wallet?.isActive ? 'ACTIVE' : 'LOCKED'}</p>
-                     <p className="text-[10px] opacity-70">CURRENCY: {wallet?.currency || 'PKR'}</p>
+                    <p className="text-[10px] opacity-70">STATUS: {wallet?.isActive ? 'ACTIVE' : 'LOCKED'}</p>
+                    <p className="text-[10px] opacity-70">CURRENCY: {wallet?.currency || 'PKR'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -232,13 +216,17 @@ export default function RiderDetail() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <History size={16} className="text-primary"/> Transaction Ledger
+                  <History size={16} className="text-primary" /> Transaction Ledger
                 </CardTitle>
-                <Button variant="ghost" size="sm" onClick={loadWallet}><History size={14} className="mr-2"/> Refresh</Button>
+                <Button variant="ghost" size="sm" onClick={loadWallet}><History size={14} className="mr-2" /> Refresh</Button>
               </CardHeader>
               <CardContent className="p-0">
                 {loadingWallet ? (
-                  <div className="p-12 text-center text-muted-foreground">Loading transactions...</div>
+                  <div className="p-6 space-y-4 animate-pulse">
+                    <div className="h-16 bg-muted rounded-xl"></div>
+                    <div className="h-16 bg-muted rounded-xl"></div>
+                    <div className="h-16 bg-muted rounded-xl"></div>
+                  </div>
                 ) : !wallet?.transactions?.length ? (
                   <div className="p-12 text-center text-muted-foreground italic">No transaction history found.</div>
                 ) : (
@@ -268,7 +256,6 @@ export default function RiderDetail() {
             </Card>
           </TabsContent>
 
-          {/* PROFILE INFO TAB */}
           <TabsContent value="info">
             <Card>
               <CardHeader><CardTitle className="text-sm font-medium">Basic Information</CardTitle></CardHeader>
@@ -296,7 +283,6 @@ export default function RiderDetail() {
             </Card>
           </TabsContent>
 
-          {/* DOCUMENTS TAB */}
           <TabsContent value="docs">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between border-b">
@@ -328,11 +314,9 @@ export default function RiderDetail() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* ADMIN TAB */}
           <TabsContent value="admin">
             <Card className="border-red-200">
-              <CardHeader className="bg-red-50/50"><CardTitle className="text-sm font-bold text-red-600 flex items-center gap-2"><ShieldCheck size={16}/> System Management</CardTitle></CardHeader>
+              <CardHeader className="bg-red-50/50"><CardTitle className="text-sm font-bold text-red-600 flex items-center gap-2"><ShieldCheck size={16} /> System Management</CardTitle></CardHeader>
               <CardContent className="p-6 space-y-4">
                 <p className="text-xs text-muted-foreground">Warning: Changing rider status affects their ability to take orders and receive payments immediately.</p>
                 <div className="flex flex-wrap gap-3">
@@ -346,6 +330,6 @@ export default function RiderDetail() {
 
         </Tabs>
       </div>
-    </DashboardLayout>
+    </DashboardLayout >
   );
 }

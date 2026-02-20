@@ -1,4 +1,4 @@
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import Modal from './Modal';
 import { Button } from '../ui/button';
 
@@ -38,9 +38,12 @@ const ConfirmDialog = ({
             variant={variant}
             onClick={handleConfirm}
             disabled={loading}
-            className="flex-1"
+            className="flex-1 flex items-center justify-center"
           >
-            {loading ? 'Processing...' : confirmText}
+            <>
+              {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {loading ? 'Processing...' : confirmText}
+            </>
           </Button>
         </div>
       </div>

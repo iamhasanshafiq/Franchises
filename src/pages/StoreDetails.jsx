@@ -2,36 +2,18 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Store,
-  Wallet,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  History,
-  MapPin,
-  ShieldCheck,
-  Loader2,
-  RefreshCw
-} from "lucide-react";
-
+import TableSkeleton from '../components/common/TableSkeleton';
+import { Store, ArrowUpCircle, ArrowDownCircle, History, MapPin, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
 import Header from "../components/common/Header";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import StatusBadge from "../components/common/StatusBadge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 
-// Assuming same base URL as Rider Wallet
 const WALLET_BASE = "https://api.barqibazar.org/wallet";
 const STORE_BASE = "https://api.barqibazar.org/franchise/api";
 
@@ -39,7 +21,6 @@ export default function StoreDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // API Instances
   const walletApi = useMemo(() => axios.create({
     baseURL: WALLET_BASE,
     headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
@@ -50,18 +31,15 @@ export default function StoreDetail() {
     headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
   }), []);
 
-  // State
   const [tab, setTab] = useState("info");
   const [store, setStore] = useState(null);
   const [loadingStore, setLoadingStore] = useState(true);
-  
+
   const [wallet, setWallet] = useState(null);
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [creditAmount, setCreditAmount] = useState("");
   const [creditReason, setCreditReason] = useState("STORE_TOPUP");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ---------------- Load Data ----------------
 
   const loadStoreData = useCallback(async () => {
     setLoadingStore(true);
@@ -78,12 +56,10 @@ export default function StoreDetail() {
   const loadWalletData = useCallback(async () => {
     setLoadingWallet(true);
     try {
-      // Fetching store wallet using ownerId (the store's ID)
       const res = await walletApi.get(`/wallets/${id}?currency=PKR`);
       setWallet(res.data?.data);
     } catch (e) {
       if (e.response?.status === 404) {
-        // Auto-create wallet if it doesn't exist for the store
         const created = await walletApi.post("/wallets", {
           ownerId: id,
           ownerType: "STORE",
@@ -106,8 +82,6 @@ export default function StoreDetail() {
     }
   }, [id, loadStoreData, loadWalletData]);
 
-  // ---------------- Handlers ----------------
-
   const handleUpdateStore = async () => {
     try {
       await storeApi.put(`/stores/${id}`, {
@@ -126,7 +100,6 @@ export default function StoreDetail() {
     setIsSubmitting(true);
 
     try {
-      // Idempotency ensures no duplicate transactions on network retry
       await walletApi.post(`/wallets/owner/${id}/credit`, {
         amount: parseFloat(creditAmount),
         reason: creditReason,
@@ -144,15 +117,19 @@ export default function StoreDetail() {
       setIsSubmitting(false);
     }
   };
-
-  if (loadingStore) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
-
+  if (loadingStore) {
+    return (
+      <DashboardLayout>
+        <Header title="Hub Management" subtitle="Loading store details..." />
+        <div className="p-6">
+          <TableSkeleton rows={4} />
+        </div>
+      </DashboardLayout>
+    );
+  }
   return (
     <DashboardLayout>
-      <Header title="Hub Management" subtitle={`Details for ${store?.name}`} />
-
       <div className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Main Store Overview Card */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 rounded-2xl border shadow-sm">
           <div className="flex items-center gap-5">
             <div className="p-3 bg-primary/10 rounded-xl text-primary">
@@ -172,9 +149,13 @@ export default function StoreDetail() {
           <Card className="border-none bg-slate-900 text-white min-w-[240px]">
             <CardContent className="p-4 flex flex-col items-end">
               <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Hub Balance</p>
-              <p className="text-3xl font-mono font-bold text-emerald-400">
-                PKR {wallet?.balance?.toLocaleString() ?? "0.00"}
-              </p>
+              {loadingWallet ? (
+                <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+              ) : (
+                <p className="text-3xl font-mono font-bold text-emerald-400">
+                  PKR {wallet?.balance?.toLocaleString() ?? "0.00"}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -186,7 +167,6 @@ export default function StoreDetail() {
             <TabsTrigger value="settings">Admin Controls</TabsTrigger>
           </TabsList>
 
-          {/* HUB INFO TAB */}
           <TabsContent value="info">
             <Card>
               <CardHeader><CardTitle className="text-lg">Edit Hub Details</CardTitle></CardHeader>
@@ -194,9 +174,9 @@ export default function StoreDetail() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Store Name</Label>
-                    <Input 
-                      value={store?.name} 
-                      onChange={e => setStore(p => ({...p, name: e.target.value}))} 
+                    <Input
+                      value={store?.name}
+                      onChange={e => setStore(p => ({ ...p, name: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -206,9 +186,9 @@ export default function StoreDetail() {
                 </div>
                 <div className="space-y-2">
                   <Label>Full Address</Label>
-                  <Input 
-                    value={store?.address} 
-                    onChange={e => setStore(p => ({...p, address: e.target.value}))} 
+                  <Input
+                    value={store?.address}
+                    onChange={e => setStore(p => ({ ...p, address: e.target.value }))}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -220,7 +200,6 @@ export default function StoreDetail() {
             </Card>
           </TabsContent>
 
-          {/* WALLET & FINANCE TAB */}
           <TabsContent value="wallet" className="space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
               {/* Quick Credit Card */}
@@ -233,11 +212,11 @@ export default function StoreDetail() {
                 <CardContent className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1 space-y-2">
                     <Label>Top-up Amount (PKR)</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="0.00" 
-                      value={creditAmount} 
-                      onChange={e => setCreditAmount(e.target.value)} 
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={creditAmount}
+                      onChange={e => setCreditAmount(e.target.value)}
                     />
                   </div>
                   <div className="flex-1 space-y-2">
@@ -251,13 +230,12 @@ export default function StoreDetail() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button className="md:mt-8 h-10 px-10" onClick={handleCredit} disabled={isSubmitting}>
+                  <Button className="md:mt-8 h-10 px-10" onClick={handleCredit} disabled={isSubmitting || loadingWallet}>
                     {isSubmitting ? <Loader2 className="animate-spin" /> : "Apply Credit"}
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Wallet Status Card */}
               <Card>
                 <CardHeader><CardTitle className="text-sm uppercase text-gray-500 font-bold">Wallet Health</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
@@ -268,20 +246,32 @@ export default function StoreDetail() {
               </Card>
             </div>
 
-            {/* Hub Transaction Ledger */}
-            
             <Card>
               <CardHeader className="flex flex-row items-center justify-between border-b">
                 <CardTitle className="text-md font-bold flex items-center gap-2">
                   <History size={18} className="text-primary" /> Financial History
                 </CardTitle>
-                <Button variant="outline" size="sm" onClick={loadWalletData}>
-                  <RefreshCw size={14} className="mr-2" /> Refresh Ledger
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadWalletData}
+                  disabled={loadingWallet}
+                >
+                  {loadingWallet ? (
+                    <Loader2 size={14} className="mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw size={14} className="mr-2" />
+                  )}
+                  Refresh Ledger
                 </Button>
               </CardHeader>
               <CardContent className="p-0">
-                {!wallet?.transactions?.length ? (
-                  <div className="p-20 text-center text-gray-400 italic">No financial activity recorded.</div>
+                {loadingWallet ? (
+                  <TableSkeleton rows={6} />
+                ) : !wallet?.transactions?.length ? (
+                  <div className="p-20 text-center text-gray-400 italic">
+                    No financial activity recorded.
+                  </div>
                 ) : (
                   <div className="divide-y max-h-[600px] overflow-y-auto">
                     {wallet.transactions.map((tx) => (
@@ -309,7 +299,6 @@ export default function StoreDetail() {
             </Card>
           </TabsContent>
 
-          {/* ADMIN SETTINGS TAB */}
           <TabsContent value="settings">
             <Card className="border-rose-100">
               <CardHeader className="bg-rose-50/50">

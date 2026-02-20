@@ -14,27 +14,25 @@ import { useFranchises } from '../hooks/useFranchises';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 const FranchiseAdmins = () => {
-  // Removed pagination from useFranchiseAdmins to match "fetch all" API requirement
   const { admins, loading, fetchAdmins, createAdmin, deleteAdmin } = useFranchiseAdmins();
   const { franchises, fetchFranchises } = useFranchises();
-  
+
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
-
-  // New state to match the Create Franchise Admin API payload
-  const [formData, setFormData] = useState({ 
-    franchiseId: '', 
-    fullName: '', 
-    email: '', 
-    password: '', 
-    phone: '' 
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    franchiseId: '',
+    fullName: '',
+    email: '',
+    password: '',
+    phone: ''
   });
 
   useEffect(() => {
-    fetchFranchises(); // GET /api/franchises
-    fetchAdmins();     // GET /api/franchise-admins
+    fetchFranchises();
+    fetchAdmins();
   }, []);
 
   const columns = [
@@ -61,12 +59,15 @@ const FranchiseAdmins = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (selectedAdmin) {
-      try {
-        await deleteAdmin(selectedAdmin.id); // DELETE /api/franchise-admins/{{id}}
-      } catch (error) {
-        console.error('Deletion error:', error);
-      }
+    if (!selectedAdmin) return;
+
+    try {
+      setDeleteLoading(true);
+      await deleteAdmin(selectedAdmin.id);
+    } catch (error) {
+      console.error('Deletion error:', error);
+    } finally {
+      setDeleteLoading(false);
       setConfirmOpen(false);
       setSelectedAdmin(null);
     }
@@ -76,7 +77,6 @@ const FranchiseAdmins = () => {
     e.preventDefault();
     setFormLoading(true);
     try {
-      // Aligns with: POST /api/franchise-admins
       await createAdmin(formData);
       setModalOpen(false);
       setFormData({ franchiseId: '', fullName: '', email: '', password: '', phone: '' });
@@ -90,7 +90,7 @@ const FranchiseAdmins = () => {
   return (
     <DashboardLayout>
       <Header title="System Administrators" subtitle="Manage franchise-level command nodes" />
-      
+
       <div className="p-8 max-w-7xl mx-auto space-y-6">
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -100,21 +100,19 @@ const FranchiseAdmins = () => {
               </div>
               <h2 className="text-sm font-black uppercase tracking-widest text-slate-600">Administrative Directory</h2>
             </div>
-            <Button onClick={() => setModalOpen(true)} className="rounded-xl shadow-lg shadow-indigo-200">
+            <Button onClick={() => setModalOpen(true)} disabled={loading} className="rounded-xl shadow-lg shadow-indigo-200">
               <Plus size={18} className="mr-2" /> Provision Admin
             </Button>
           </div>
 
-          <DataTable 
-            columns={columns} 
-            data={admins} 
-            loading={loading} 
+          <DataTable
+            columns={columns}
+            data={admins}
+            loading={loading}
             emptyMessage="No administrative nodes found in network"
           />
         </div>
       </div>
-
-      {/* Add Admin Modal - Matches POST body requirements */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Provision New Administrator">
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
@@ -134,21 +132,21 @@ const FranchiseAdmins = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-slate-500">Full Name</Label>
-              <Input 
-                className="rounded-xl h-12" 
+              <Input
+                className="rounded-xl h-12"
                 placeholder="Ali Khan"
                 value={formData.fullName}
-                onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 required
               />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-slate-500">Contact Number</Label>
-              <Input 
-                className="rounded-xl h-12" 
+              <Input
+                className="rounded-xl h-12"
                 placeholder="03001234567"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 required
               />
             </div>
@@ -156,24 +154,24 @@ const FranchiseAdmins = () => {
 
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase text-slate-500">Email Address</Label>
-            <Input 
+            <Input
               type="email"
-              className="rounded-xl h-12" 
+              className="rounded-xl h-12"
               placeholder="admin@barqi.pk"
               value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase text-slate-500">Temporary Password</Label>
-            <Input 
+            <Input
               type="password"
-              className="rounded-xl h-12" 
+              className="rounded-xl h-12"
               placeholder="••••••••"
               value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
             />
           </div>
@@ -187,12 +185,13 @@ const FranchiseAdmins = () => {
         </form>
       </Modal>
 
-      <ConfirmDialog 
-        isOpen={confirmOpen} 
-        onClose={() => setConfirmOpen(false)} 
-        onConfirm={handleConfirmDelete} 
-        title="Revoke Admin Access" 
-        message={`Are you sure you want to permanently remove access for ${selectedAdmin?.fullName}?`} 
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Revoke Admin Access"
+        message={`Are you sure you want to permanently remove access for ${selectedAdmin?.fullName}?`}
+        loading={deleteLoading}
       />
     </DashboardLayout>
   );

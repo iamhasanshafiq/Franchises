@@ -10,21 +10,15 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
-import {
-  UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Eye, Trash2
-} from 'lucide-react';
+import { UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Eye, Trash2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-//   Loding
 import TableSkeleton from '../components/common/TableSkeleton';
-
 
 const BASE_URL = "https://api.barqibazar.org/franchise/api";
 
 const StoreAdmins = () => {
   const navigate = useNavigate();
   const { role } = useAuth();
-
-  // --- STATE ---
   const [admins, setAdmins] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [stores, setStores] = useState([]);
@@ -40,7 +34,6 @@ const StoreAdmins = () => {
     phone: ''
   });
 
-  // --- API HELPER ---
   const apiCall = useCallback(async (endpoint, method = 'GET', data = null) => {
     const token = localStorage.getItem('access_token');
     return axios({
@@ -51,15 +44,11 @@ const StoreAdmins = () => {
     });
   }, []);
 
-  // --- DATA FETCHING ---
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch Store Admins
       const adminRes = await apiCall('/store-admins?page=1&limit=50');
       setAdmins(adminRes.data?.data?.items || adminRes.data?.data || []);
-
-      // 2. Fetch Stores for assignment dropdown
       const storeRes = await apiCall('/stores?limit=100');
       setStores(storeRes.data?.data?.items || storeRes.data?.data || []);
     } catch (err) {
@@ -72,26 +61,25 @@ const StoreAdmins = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-const filteredAdmins = useMemo(() => {
-  if (!searchTerm) return admins;
+  const filteredAdmins = useMemo(() => {
+    if (!searchTerm) return admins;
 
-  return admins.filter((admin) => {
-    const name = admin.fullName?.toLowerCase() || '';
-    const email = admin.email?.toLowerCase() || '';
-    const phone = admin.phone?.toLowerCase() || '';
-    const store = admin.store?.name?.toLowerCase() || '';
+    return admins.filter((admin) => {
+      const name = admin.fullName?.toLowerCase() || '';
+      const email = admin.email?.toLowerCase() || '';
+      const phone = admin.phone?.toLowerCase() || '';
+      const store = admin.store?.name?.toLowerCase() || '';
 
-    const search = searchTerm.toLowerCase();
+      const search = searchTerm.toLowerCase();
 
-    return (
-      name.includes(search) ||
-      email.includes(search) ||
-      phone.includes(search) ||
-      store.includes(search)
-    );
-  });
-}, [admins, searchTerm]);
-  // --- HANDLERS ---
+      return (
+        name.includes(search) ||
+        email.includes(search) ||
+        phone.includes(search) ||
+        store.includes(search)
+      );
+    });
+  }, [admins, searchTerm]);
   const handleCreate = async (e) => {
     e.preventDefault();
     setFormLoading(true);
@@ -113,7 +101,6 @@ const filteredAdmins = useMemo(() => {
       <Header title="Store Access Control" subtitle="Manage personnel authorized to oversee local hub operations" />
 
       <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-        {/* Action Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
@@ -130,14 +117,13 @@ const filteredAdmins = useMemo(() => {
           </Button>
         </div>
 
-        {/* Data Table */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
           {loading ? (
             <TableSkeleton rows={6} />
           ) : (
             <DataTable
               data={filteredAdmins}
-              
+
               columns={[
                 {
                   key: 'fullName',
@@ -190,12 +176,10 @@ const filteredAdmins = useMemo(() => {
 
       </div>
 
-      {/* Registration Modal */}
       {modalOpen && (
         <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="New Store Administrator" size="lg">
           <form onSubmit={handleCreate} className="space-y-6 py-2">
 
-            {/* Store Hub Selection */}
             <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 space-y-2">
               <Label className="text-[10px] font-bold uppercase text-orange-700 tracking-wider">Target Store Hub</Label>
               <Select

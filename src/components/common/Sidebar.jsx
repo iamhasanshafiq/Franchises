@@ -2,30 +2,18 @@ import React, { useState, useMemo } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
-import {
-  LayoutDashboard,
-  Building2,
-  Store,
-  Bike,
-  UserCog,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  ShieldCheck,
-  Activity
-} from 'lucide-react';
+import { LayoutDashboard, Building2, Store, Bike, UserCog, ChevronLeft, ChevronRight, LogOut, ShieldCheck, Activity } from 'lucide-react';
 import logo from '../../../public/barqibazarimg.jpeg';
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isLoading } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  // Memoize menu items based on role
   const menuItems = useMemo(() => {
     const base = [{ path: '/dashboard', label: 'Overview', icon: LayoutDashboard }];
-    
+
     if (isAdmin()) {
       return [
         ...base,
@@ -35,7 +23,7 @@ const Sidebar = () => {
         { path: '/riders', label: 'Fleet Management', icon: Bike }, // Aligns with GET /api/riders
       ];
     }
-    
+
     return [
       ...base,
       { path: '/riders', label: 'My Riders', icon: Bike },
@@ -84,7 +72,7 @@ const Sidebar = () => {
         {!collapsed && (
           <p className="px-4 mb-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Operations Menu</p>
         )}
-        
+
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path;
@@ -96,13 +84,13 @@ const Sidebar = () => {
               className={cn(
                 'group flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 relative',
                 isActive
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50 shadow-sm' 
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50 shadow-sm'
                   : 'text-slate-500 hover:text-orange-600 hover:bg-orange-50/50'
               )}
             >
-              <Icon 
-                size={20} 
-                className={cn('shrink-0 transition-all duration-300', isActive ? 'scale-110 text-emerald-600' : 'group-hover:scale-110 group-hover:text-orange-500')} 
+              <Icon
+                size={20}
+                className={cn('shrink-0 transition-all duration-300', isActive ? 'scale-110 text-emerald-600' : 'group-hover:scale-110 group-hover:text-orange-500')}
               />
               {!collapsed && (
                 <span className="text-sm font-bold tracking-tight whitespace-nowrap animate-in fade-in slide-in-from-left-2">
@@ -124,30 +112,37 @@ const Sidebar = () => {
           collapsed ? "flex flex-col items-center gap-4" : "space-y-4"
         )}>
           {!collapsed && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-200 shrink-0">
-                  <ShieldCheck size={18} />
+            isLoading ? (
+              <div className="space-y-3 animate-pulse">
+                <div className="h-10 bg-muted rounded-lg"></div>
+                <div className="h-8 bg-muted rounded-lg"></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-200 shrink-0">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] text-emerald-700 font-black uppercase tracking-widest">Operator</p>
+                    <p className="text-sm font-black text-slate-800 truncate leading-none mt-1">
+                      {user?.fullName || user?.email?.split('@')[0]}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[9px] text-emerald-700 font-black uppercase tracking-widest">Operator</p>
-                  <p className="text-sm font-black text-slate-800 truncate leading-none mt-1">
-                    {user?.fullName || user?.email?.split('@')[0]}
-                  </p>
+
+                {/* Status Badge with Yellow Accent */}
+                <div className="flex items-center justify-between bg-white border border-yellow-200 px-3 py-2 rounded-lg shadow-sm">
+                  <span className="text-[10px] font-black text-orange-600 uppercase tracking-tighter">
+                    {user?.role?.replace('_', ' ')}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Activity size={10} className="text-emerald-500" />
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Live</span>
+                  </div>
                 </div>
               </div>
-              
-              {/* Status Badge with Yellow Accent */}
-              <div className="flex items-center justify-between bg-white border border-yellow-200 px-3 py-2 rounded-lg shadow-sm">
-                <span className="text-[10px] font-black text-orange-600 uppercase tracking-tighter">
-                   {user?.role?.replace('_', ' ')}
-                </span>
-                <div className="flex items-center gap-1">
-                  <Activity size={10} className="text-emerald-500" />
-                  <span className="text-[9px] font-bold text-emerald-600 uppercase">Live</span>
-                </div>
-              </div>
-            </div>
+            )
           )}
 
           <button

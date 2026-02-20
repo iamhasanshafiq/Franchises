@@ -4,7 +4,6 @@ import axios from "axios";
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete } from "@react-google-maps/api";
 import { Plus, Search, MapPin, Eye, Map as MapIcon, Loader2, Hash, Navigation } from "lucide-react";
 import { toast } from "sonner";
-
 import Header from "../components/common/Header";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import DataTable from "../components/common/DataTable";
@@ -13,9 +12,7 @@ import StatusBadge from "../components/common/StatusBadge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-//   Loding
 import TableSkeleton from '../components/common/TableSkeleton';
-
 const BASE_URL = "https://api.barqibazar.org/franchise/api";
 const GOOGLE_MAPS_API_KEY = "AIzaSyDP6KnwXJ9tyIbT4qAC7XIX3rdmqABnVco";
 const LIBRARIES = ["places"];
@@ -34,13 +31,23 @@ const Stores = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
-    localStoreid: "", // Manual UUID entry
+    localStoreid: "",
     name: "",
     address: "",
     latitude: 33.6844,
     longitude: 73.0479,
   });
-
+  useEffect(() => {
+    if (!modalOpen) {
+      setFormData({
+        localStoreid: "",
+        name: "",
+        address: "",
+        latitude: 33.6844,
+        longitude: 73.0479,
+      });
+    }
+  }, [modalOpen]);
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     libraries: LIBRARIES,
@@ -74,33 +81,40 @@ const Stores = () => {
 
   useEffect(() => { refreshData(); }, [refreshData]);
 
-  // --- MAP LOGIC ---
   const handleMapClick = (e) => {
+    if (!window.google || !e?.latLng) return;
+
     const lat = e.latLng.lat();
     const lng = e.latLng.lng();
-    setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
 
-    // Auto-fill address from click
+    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      if (status === "OK" && results[0]) {
-        setFormData(prev => ({ ...prev, address: results[0].formatted_address }));
+      if (status === "OK" && results?.[0]) {
+        setFormData(prev => ({
+          ...prev,
+          address: results[0].formatted_address,
+        }));
       }
     });
   };
 
   const onPlaceSelected = () => {
+    if (!autocompleteRef.current) return;
+
     const place = autocompleteRef.current.getPlace();
-    if (place.geometry) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      setFormData(prev => ({
-        ...prev,
-        latitude: lat,
-        longitude: lng,
-        address: place.formatted_address || prev.address
-      }));
-    }
+    if (!place?.geometry) return;
+
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      address: place.formatted_address || prev.address,
+    }));
   };
 
   const handleCreate = async (e) => {
@@ -118,7 +132,11 @@ const Stores = () => {
       setModalOpen(false);
       refreshData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Provisioning failed");
+      toast.error(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Provisioning failed"
+      );
     } finally {
       setFormLoading(false);
     }
@@ -129,14 +147,21 @@ const Stores = () => {
     return stores.filter((store) =>
       store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       store.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      store.localStoreid?.toLowerCase().includes(searchTerm.toLowerCase())
+      String(store.localStoreid || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
     );
   }, [stores, searchTerm]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
   // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredStores.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredStores.length / itemsPerPage);
+  const totalPages = itemsPerPage
+    ? Math.ceil(filteredStores.length / itemsPerPage)
+    : 1;
 
   const columns = useMemo(() => [
     {
@@ -178,6 +203,7 @@ const Stores = () => {
           <div className="relative flex gap-5 w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
             <Input
+              disabled={loading}
               className="pl-10 h-11 bg-gray-50 border-none rounded-xl"
               placeholder="Filter hub registry..."
               value={searchTerm}
@@ -186,6 +212,7 @@ const Stores = () => {
             <div className="flex items-center gap-3 bg-slate-50/80 px-4 py-1.5 rounded-2xl border border-slate-100">
               <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Show</Label>
               <select
+                disabled={loading}
                 value={itemsPerPage}
                 onChange={(e) => {
                   setItemsPerPage(Number(e.target.value));
@@ -206,10 +233,12 @@ const Stores = () => {
         <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
           {loading ? (
             <TableSkeleton rows={6} />
+          ) : filteredStores.length === 0 ? (
+            <div className="p-20 text-center text-gray-400">
+              No stores found.
+            </div>
           ) : (
-            // <DataTable columns={columns} data={filteredStores} />
             <DataTable columns={columns} data={currentItems} />
-
           )}
         </div>
         {!loading && totalPages > 1 && (
@@ -266,7 +295,6 @@ const Stores = () => {
         <Modal isOpen onClose={() => setModalOpen(false)} title="Register Store Hub" size="xl">
           <form onSubmit={handleCreate} className="grid grid-cols-1 lg:grid-cols-12 gap-8 p-1">
 
-            {/* Left: Configuration Details (5 units) */}
             <div className="lg:col-span-5 space-y-5">
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
                 <div className="space-y-1.5">
@@ -308,11 +336,11 @@ const Stores = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-900 rounded-2xl text-white">
                   <label className="text-[8px] font-black text-orange-500 uppercase">Latitude</label>
-                  <p className="text-xs font-mono">{formData.latitude.toFixed(6)}</p>
+                  <p className="text-xs font-mono">{Number(formData.latitude).toFixed(6)}</p>
                 </div>
                 <div className="p-3 bg-slate-900 rounded-2xl text-white">
                   <label className="text-[8px] font-black text-orange-500 uppercase">Longitude</label>
-                  <p className="text-xs font-mono">{formData.longitude.toFixed(6)}</p>
+                  <p className="text-xs font-mono">{Number(formData.longitude).toFixed(6)}</p>
                 </div>
               </div>
 
@@ -324,7 +352,6 @@ const Stores = () => {
               </div>
             </div>
 
-            {/* Right: Map Integration (7 units) */}
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center justify-between px-1">
                 <Label className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">

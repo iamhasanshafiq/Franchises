@@ -1,13 +1,6 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '../ui/table';
 import Pagination from './Pagination';
-import { LoadingCard } from './LoadingSpinner';
+import TableSkeleton from '../common/TableSkeleton';
 import { FileX } from 'lucide-react';
 
 const DataTable = ({
@@ -19,7 +12,7 @@ const DataTable = ({
   emptyMessage = 'No data found',
 }) => {
   if (loading) {
-    return <LoadingCard message="Loading data..." />;
+    return <TableSkeleton rows={6} columns={columns.length} />;
   }
 
   if (!data || data.length === 0) {

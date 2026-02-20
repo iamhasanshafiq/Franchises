@@ -11,7 +11,6 @@ const StatusBadge = ({ status, variant }) => {
     accent: 'bg-accent/10 text-accent border-accent/20',
   };
 
-  // Auto-determine variant based on status if not provided
   const getAutoVariant = () => {
     const statusLower = status?.toLowerCase();
     if (['active', 'approved', 'verified', 'success'].includes(statusLower)) return 'success';

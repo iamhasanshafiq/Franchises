@@ -1,23 +1,14 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import {
-  Building2, Store, Bike, Users, TrendingUp, CheckCircle,
-  MapPin, AlertCircle, ArrowRight, PieChart, Activity,
-  Wallet, ShieldAlert, Zap, Globe, BarChart3, Landmark
-} from 'lucide-react';
-
-// Hooks & Context
+import { Store, Bike, Users, TrendingUp, CheckCircle, ArrowRight, PieChart, Activity, Wallet, ShieldAlert, Zap, Globe, BarChart3, Landmark } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useCities } from '../hooks/useCities';
 import { useFranchises } from '../hooks/useFranchises';
 import { useRiders } from '../hooks/useRiders';
-
-// UI Components
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import StatsCards from '../components/dashboard/StatsCards';
-import { LoadingCard } from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import { Progress } from '../components/ui/progress';
 import { Button } from '../components/ui/button';
@@ -33,14 +24,13 @@ const Dashboard = () => {
   const { franchises, loading: franchisesLoading, fetchFranchises } = useFranchises();
   const { riders, loading: ridersLoading, fetchRiders } = useRiders();
 
-  // Sync Financial Intelligence
   const loadFinancials = useCallback(async () => {
     try {
-     const id = isAdmin()
-  ? 'admin-root'
-  : user?.franchiseId
-    || user?.franchise_id
-    || user?.franchise?.id;
+      const id = isAdmin()
+        ? 'admin-root'
+        : user?.franchiseId
+        || user?.franchise_id
+        || user?.franchise?.id;
 
       if (!id) {
         console.warn("Wallet ID missing:", user);
@@ -67,14 +57,12 @@ const Dashboard = () => {
     loadFinancials();
   }, [isAdmin, isFranchiseAdmin, user, loadFinancials]);
 
-  // Operational Intelligence Engine
   const analytics = useMemo(() => {
     const fleet = riders || [];
     const total = fleet.length;
     const active = fleet.filter(r => ['ACTIVE', 'APPROVED'].includes(r.status)).length;
     const pending = fleet.filter(r => r.status === 'APPLIED').length;
 
-    // Calculate Capacity (assuming 100 as base if not defined)
     const cap = user?.franchise?.maxActiveRiders || 100;
     const utilization = Math.round((active / cap) * 100);
 
@@ -107,10 +95,6 @@ const Dashboard = () => {
     ];
   }, [isAdmin, analytics, walletBalance, franchises]);
 
-  if (citiesLoading || franchisesLoading || ridersLoading) {
-    return <LoadingCard message="Calibrating Operational Analytics..." />;
-  }
-
   return (
     <DashboardLayout>
       <Header
@@ -119,13 +103,11 @@ const Dashboard = () => {
       />
 
       <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-
-        {/* Tier 1: Financial & Deployment Summary */}
-        <StatsCards cards={cards} />
-
+        <StatsCards
+          cards={cards}
+          loading={citiesLoading || franchisesLoading || ridersLoading}
+        />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-          {/* Tier 2: Real-time Operational Stream */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
               <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -144,27 +126,33 @@ const Dashboard = () => {
               </div>
 
               <div className="divide-y divide-slate-50">
-                {riders?.slice(0, 5).map((rider) => (
-                  <div key={rider.id} className="p-5 flex items-center justify-between hover:bg-slate-50/80 transition-all cursor-pointer group" onClick={() => navigate(`/riders/${rider.id}`)}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-lg group-hover:scale-110 transition-transform">
-                        {rider.fullName?.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-700">{rider.fullName}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-500 uppercase tracking-tighter">{rider.vehicleType}</span>
-                          <span className="text-[10px] text-slate-400 font-mono tracking-widest">{rider.phone}</span>
+                {ridersLoading ? (
+                  <div className="p-6 space-y-4 animate-pulse">
+                    <div className="h-16 bg-muted rounded-2xl"></div>
+                    <div className="h-16 bg-muted rounded-2xl"></div>
+                    <div className="h-16 bg-muted rounded-2xl"></div>
+                  </div>
+                ) : (
+                  riders?.slice(0, 5).map((rider) => (
+                    <div key={rider.id} className="p-5 flex items-center justify-between hover:bg-slate-50/80 transition-all cursor-pointer group" onClick={() => navigate(`/riders/${rider.id}`)}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-lg group-hover:scale-110 transition-transform">
+                          {rider.fullName?.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-700">{rider.fullName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-500 uppercase tracking-tighter">{rider.vehicleType}</span>
+                            <span className="text-[10px] text-slate-400 font-mono tracking-widest">{rider.phone}</span>
+                          </div>
                         </div>
                       </div>
+                      <StatusBadge status={rider.status} />
                     </div>
-                    <StatusBadge status={rider.status} />
-                  </div>
-                ))}
+                  )
+                  ))}
               </div>
             </div>
-
-            {/* Tier 3: Admin Regional Heatmap */}
             {isAdmin() && (
               <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-3 mb-8">
@@ -174,31 +162,45 @@ const Dashboard = () => {
                   <h3 className="text-lg font-bold text-slate-800">Node Concentration by Region</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                  {cities?.slice(0, 4).map(city => {
-                    const count = franchises?.filter(f => f.cityId === city.id).length || 0;
-                    const percent = Math.min((count / 10) * 100, 100); // Scale relative to 10 nodes
-                    return (
-                      <div key={city.id} className="space-y-3">
-                        <div className="flex justify-between items-end">
-                          <div>
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">{city.name}</p>
-                            <p className="text-sm font-bold text-slate-700">{count} Active Hubs</p>
+                  {citiesLoading ? (
+                    <div className="space-y-6 animate-pulse col-span-2">
+                      <div className="h-12 bg-muted rounded-xl"></div>
+                      <div className="h-12 bg-muted rounded-xl"></div>
+                    </div>
+                  ) : (
+                    cities?.slice(0, 4).map((city) => {
+                      const count =
+                        franchises?.filter((f) => f.cityId === city.id).length || 0;
+                      const percent = Math.min((count / 10) * 100, 100);
+
+                      return (
+                        <div key={city.id} className="space-y-3">
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
+                                {city.name}
+                              </p>
+                              <p className="text-sm font-bold text-slate-700">
+                                {count} Active Hubs
+                              </p>
+                            </div>
+                            <span className="text-xs font-bold text-blue-600">
+                              {count > 0 ? "High Growth" : "Expansion Target"}
+                            </span>
                           </div>
-                          <span className="text-xs font-bold text-blue-600">{count > 0 ? 'High Growth' : 'Expansion Target'}</span>
+                          <Progress
+                            value={percent}
+                            className="h-2 rounded-full bg-slate-100"
+                          />
                         </div>
-                        <Progress value={percent} className="h-2 rounded-full bg-slate-100" />
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
           </div>
-
-          {/* Sidebar Intelligence */}
           <div className="space-y-8">
-
-            {/* Fleet Composition Mix */}
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
@@ -223,8 +225,6 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-
-            {/* Quick Command Node Status */}
             <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl">
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-6">
@@ -243,8 +243,6 @@ const Dashboard = () => {
               </div>
               <Activity className="absolute -right-8 -bottom-8 text-white/5 group-hover:text-white/10 transition-all duration-1000 rotate-12" size={200} />
             </div>
-
-            {/* Admin Utility Links */}
             <div className="grid grid-cols-2 gap-4">
               <Button onClick={() => navigate('/stores')} variant="outline" className="h-28 rounded-[2rem] flex flex-col gap-3 border-slate-200 hover:border-indigo-500 transition-all group shadow-sm">
                 <Store size={24} className="text-indigo-500 group-hover:scale-110 transition-transform" />
