@@ -82,18 +82,24 @@ export default function StoreDetail() {
     }
   }, [id, loadStoreData, loadWalletData]);
 
-  const handleUpdateStore = async () => {
-    try {
-      await storeApi.put(`/stores/${id}`, {
-        name: store.name,
-        address: store.address,
-      });
-      toast.success("Store details updated");
-      loadStoreData();
-    } catch (e) {
-      toast.error("Update failed");
-    }
-  };
+const handleUpdateStore = async () => {
+  try {
+    console.log("Updating Store ID:", id);
+
+    const res = await storeApi.patch(`/stores/${id}`, {
+      name: store?.name,
+      address: store?.address,
+    });
+
+    console.log("Update Response:", res.data);
+
+    toast.success("Store details updated");
+    loadStoreData();
+  } catch (e) {
+    console.error("Update Error:", e.response?.data || e.message);
+    toast.error(e.response?.data?.message || "Update failed");
+  }
+};
 
   const handleCredit = async () => {
     if (!creditAmount || parseFloat(creditAmount) <= 0) return toast.error("Enter a valid amount");
