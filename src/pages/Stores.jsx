@@ -198,7 +198,7 @@ const Stores = () => {
     <DashboardLayout>
       <Header title="Hub Control" subtitle="Provision and localize franchise store operations" />
 
-      <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="p-6 space-y-6 w-full">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
           <div className="relative flex gap-5 w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />

@@ -100,7 +100,7 @@ const StoreAdmins = () => {
     <DashboardLayout>
       <Header title="Store Access Control" subtitle="Manage personnel authorized to oversee local hub operations" />
 
-      <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="p-6 space-y-6 w-full">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
