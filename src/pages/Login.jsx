@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'; // Path updated to match your
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Eye, EyeOff, Store, MapPin, ArrowRight, Activity, Building2, Lock, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Store, FileKey, MapPin, ArrowRight, Activity, Building2, Lock, ShieldCheck } from 'lucide-react';
 import { toast } from '../hooks/use-toast';
 import logo from '../../public/barqibazarimg.jpeg';
 
@@ -16,7 +16,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const [showForgotModal, setShowForgotModal] = useState(false);
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -185,9 +185,13 @@ const Login = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-gray-700 font-semibold text-xs uppercase tracking-wide">Password</Label>
-                <a href="#" className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+                >
                   Forgot password?
-                </a>
+                </button>
               </div>
               <div className="relative group">
                 <Input
@@ -229,7 +233,64 @@ const Login = () => {
               )}
             </Button>
           </form>
+          {showForgotModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md animate-in fade-in duration-200">
 
+              {/* Overlay Click Close */}
+              <div
+                className="absolute inset-0"
+                onClick={() => setShowForgotModal(false)}
+              />
+
+              <div className="relative w-full max-w-md mx-4 bg-white rounded-3xl shadow-[0_35px_90px_-20px_rgba(0,0,0,0.3)] border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-300">
+
+                {/* Top Gradient */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-green-900 via-green-800 to-orange-500" />
+
+                <div className="px-8 pt-8 pb-8">
+
+                  {/* Animated Icon Box */}
+                  <div className="group mx-auto w-16 h-16 rounded-2xl bg-orange-50 flex items-center justify-center mb-6 transition-all duration-500 hover:rotate-6 hover:scale-110 hover:shadow-lg hover:shadow-orange-500/20">
+                    <FileKey className="w-7 h-7 text-orange-600 transition-transform duration-500 group-hover:rotate-12" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="text-center space-y-3">
+                    <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
+                      Reset Password?
+                    </h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">
+                      You’ll be redirected to the secure password recovery page to regain access to your account.
+                    </p>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="mt-8 flex gap-4">
+
+                    <button
+                      onClick={() => setShowForgotModal(false)}
+                      className="flex-1 h-11 rounded-xl text-md tracking-wide font-bold bg-green-600 text-white  shadow-md shadow-green-600/25 hover:bg-green-700 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.open('https://yourlink.com', '_blank', 'noopener,noreferrer');
+                        setShowForgotModal(false);
+                      }}
+                      className="flex-1 h-11 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-md tracking-wide font-bold shadow-lg shadow-orange-500/30 hover:from-orange-600 hover:to-orange-700 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
+                    >
+                      Forgot
+                    </button>
+
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          )}
           <div className="mt-8 text-center pt-6 border-t border-gray-100">
             <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
               <Lock className="w-3 h-3" />
