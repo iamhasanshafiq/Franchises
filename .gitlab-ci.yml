@@ -1,25 +1,16 @@
-image: node:22
-
-stages:
-  - deploy
-
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - node_modules/
+image: node:18
 
 pages:
   stage: deploy
   script:
-    # Install dependencies and build the Vite app
-    - npm ci
-    - npm run build
-    # GitLab Pages expects a ./public directory
-    - mv dist public
+    - npm install -g pnpm
+    - pnpm install
+    - pnpm run build
+    - rm -rf public
+    - cp -r dist public
+    - cp public/index.html public/404.html
   artifacts:
     paths:
       - public
-  rules:
-    # Only deploy from the default branch
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-
+  only:
+    - main
