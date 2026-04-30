@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
-import { LayoutDashboard, Building2, Store, Bike, UserCog, ChevronLeft, ChevronRight, LogOut, ShieldCheck, Activity } from 'lucide-react';
+import { LayoutDashboard, Building2, Store, Bike, UserCog, ChevronLeft, ChevronRight, LogOut, ShieldCheck, Activity, Users, Shield } from 'lucide-react';
 import logo from '../../../public/barqibazarimg.jpeg';
 
 const Sidebar = () => {
@@ -17,10 +17,14 @@ const Sidebar = () => {
     if (isAdmin()) {
       return [
         ...base,
-        { path: '/cities', label: 'City Network', icon: Building2 }, // Aligns with GET /api/cities
-        { path: '/franchises', label: 'Franchise Nodes', icon: Store }, // Aligns with GET /api/franchises
-        { path: '/franchise-admins', label: 'System Admins', icon: UserCog }, // Aligns with GET /api/franchise-admins
-        { path: '/riders', label: 'Fleet Management', icon: Bike }, // Aligns with GET /api/riders
+        { path: '/cities', label: 'City Network', icon: Building2 },
+        { path: '/franchises', label: 'Franchise Nodes', icon: Store },
+        { path: '/franchise-admins', label: 'Franchise Admins', icon: UserCog },
+        { path: '/stores', label: 'Stores', icon: Store },
+        { path: '/storesAdmin', label: 'Store Admins', icon: UserCog },
+        { path: '/riders', label: 'Fleet Management', icon: Bike },
+        { path: '/users', label: 'IAM Users', icon: Users },
+        { path: '/roles', label: 'IAM Roles', icon: Shield },
       ];
     }
 

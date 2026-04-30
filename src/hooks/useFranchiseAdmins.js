@@ -21,15 +21,16 @@ export const useFranchiseAdmins = () => {
     try {
       const response = await franchiseAdminsApi.getAll(page, limit, franchiseId);
       const data = response.data || response;
+      const paginationData = data.meta || data.pagination || {};
       setAdmins(data.items || []);
-      setPagination((prev) => ({
-        page: data.pagination?.page || page,
-        limit: data.pagination?.limit || limit,
-        total: data.pagination?.total || 0,
-        totalPages: data.pagination?.totalPages || 0,
-        hasNext: data.pagination?.hasNext || false,
-        hasPrev: data.pagination?.hasPrev || false,
-      }));
+      setPagination({
+        page: paginationData.page || page,
+        limit: paginationData.limit || limit,
+        total: paginationData.total || 0,
+        totalPages: paginationData.totalPages || 0,
+        hasNext: paginationData.hasNext || false,
+        hasPrev: paginationData.hasPrev || false,
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch franchise admins');
       toast({

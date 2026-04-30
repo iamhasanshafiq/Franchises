@@ -1,9 +1,7 @@
 import axios from 'axios';
-
-const API_BASE_URL = 'https://api.barqibazar.org';
+import { AUTH_URL, joinUrl } from "../config/serviceUrls";
 
 const axiosInstance = axios.create({
-  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -36,7 +34,7 @@ axiosInstance.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken) {
         try {
-          const response = await axios.post(`${API_BASE_URL}/auth/api/auth/refresh`, {
+          const response = await axios.post(joinUrl(AUTH_URL, "/users/refresh"), {
             refresh: refreshToken,
           });
           

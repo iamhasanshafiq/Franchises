@@ -12,8 +12,9 @@ import StatsCards from '../components/dashboard/StatsCards';
 import StatusBadge from '../components/common/StatusBadge';
 import { Progress } from '../components/ui/progress';
 import { Button } from '../components/ui/button';
+import { WALLET_URL } from "../config/serviceUrls";
 
-const WALLET_BASE = "https://api.barqibazar.org/wallet";
+const WALLET_BASE = WALLET_URL;
 
 const Dashboard = () => {
   const navigate = useNavigate();

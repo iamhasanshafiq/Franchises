@@ -16,8 +16,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useRiders } from "../hooks/useRiders";
 import { useRiderDocs } from "../hooks/useRiderDocs";
 import { uploadFiles } from "../utils/fileUpload";
+import { WALLET_URL } from "../config/serviceUrls";
 
-const WALLET_BASE = "https://api.barqibazar.org/wallet";
+const WALLET_BASE = WALLET_URL;
 
 export default function RiderDetail() {
   const { id } = useParams();

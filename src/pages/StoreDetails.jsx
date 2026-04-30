@@ -13,9 +13,10 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { FRANCHISE_URL, WALLET_URL } from "../config/serviceUrls";
 
-const WALLET_BASE = "https://api.barqibazar.org/wallet";
-const STORE_BASE = "https://api.barqibazar.org/franchise/api";
+const WALLET_BASE = WALLET_URL;
+const STORE_BASE = FRANCHISE_URL;
 
 export default function StoreDetail() {
   const { id } = useParams();

@@ -1,8 +1,9 @@
 import axiosInstance from './axios.config';
+import { AUTH_URL, joinUrl } from "../config/serviceUrls";
 
 export const authApi = {
   login: async (email, password) => {
-    const response = await axiosInstance.post('/auth/api/auth/login/', {
+    const response = await axiosInstance.post(joinUrl(AUTH_URL, "/auth/login/"), {
       email,
       password,
     });

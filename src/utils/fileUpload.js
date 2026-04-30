@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const FILE_UPLOAD_URL = import.meta.env.VITE_BASE_URL_FILE_UPLOAD || 'https://api.barqibazar.org';
+import { FILE_UPLOAD_URL, joinUrl } from "../config/serviceUrls";
+
+const getFileUploadUrl = () => {
+  if (!FILE_UPLOAD_URL) {
+    throw new Error("Missing env var: VITE_BASE_URL_FILE_UPLOAD");
+  }
+  return FILE_UPLOAD_URL;
+};
 
 /**
  * Upload files to the cloud storage
@@ -8,6 +15,7 @@ const FILE_UPLOAD_URL = import.meta.env.VITE_BASE_URL_FILE_UPLOAD || 'https://ap
  * @returns {Promise<{url: string, id: string}[]>} Array of uploaded file URLs and IDs
  */
 export const uploadFiles = async (files) => {
+  const baseUrl = getFileUploadUrl();
   const formData = new FormData();
   
   files.forEach((file) => {
@@ -15,7 +23,7 @@ export const uploadFiles = async (files) => {
   });
 
   try {
-    const response = await axios.post(`${FILE_UPLOAD_URL}/files/upload`, formData, {
+    const response = await axios.post(joinUrl(baseUrl, "/files/upload"), formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -47,4 +55,3 @@ export const uploadSingleFile = async (file) => {
   const [result] = await uploadFiles([file]);
   return result;
 };
-

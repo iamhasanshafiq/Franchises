@@ -13,8 +13,9 @@ import { toast } from 'sonner';
 import { UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Eye, Trash2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import TableSkeleton from '../components/common/TableSkeleton';
+import { FRANCHISE_URL, joinUrl } from "../config/serviceUrls";
 
-const BASE_URL = "https://api.barqibazar.org/franchise/api";
+const BASE_URL = FRANCHISE_URL;
 
 const StoreAdmins = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ const StoreAdmins = () => {
     const token = localStorage.getItem('access_token');
     return axios({
       method,
-      url: `${BASE_URL}${endpoint}`,
+      url: joinUrl(BASE_URL, endpoint),
       headers: { Authorization: `Bearer ${token}` },
       data
     });

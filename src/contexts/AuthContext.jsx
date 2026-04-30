@@ -12,6 +12,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const VITE_AUTH_URL = import.meta.env.VITE_AUTH_URL;
 
   useEffect(() => {
     const storedUser = authApi.getCurrentUser();
@@ -22,7 +23,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await fetch('https://api.barqibazar.org/iam/users/login', {
+    const response = await fetch(VITE_AUTH_URL + '/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),

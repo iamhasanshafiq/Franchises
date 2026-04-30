@@ -13,7 +13,9 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import TableSkeleton from '../components/common/TableSkeleton';
-const BASE_URL = "https://api.barqibazar.org/franchise/api";
+import { FRANCHISE_URL, joinUrl } from "../config/serviceUrls";
+
+const BASE_URL = FRANCHISE_URL;
 const GOOGLE_MAPS_API_KEY = "AIzaSyDP6KnwXJ9tyIbT4qAC7XIX3rdmqABnVco";
 const LIBRARIES = ["places"];
 
@@ -57,7 +59,7 @@ const Stores = () => {
     const token = localStorage.getItem("access_token");
     return axios({
       method,
-      url: `${BASE_URL}${endpoint}`,
+      url: joinUrl(BASE_URL, endpoint),
       headers: { Authorization: `Bearer ${token}` },
       data,
     });
@@ -404,5 +406,4 @@ const mapStyles = [
 ];
 
 export default Stores;
-
 

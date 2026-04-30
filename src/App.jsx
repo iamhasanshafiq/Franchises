@@ -12,11 +12,13 @@ import Dashboard from "./pages/Dashboard";
 import Cities from "./pages/Cities";
 import Franchises from "./pages/Franchises";
 import FranchiseAdmins from "./pages/FranchiseAdmins";
-import Stores from "./pages/Stores"; 
-import StoreDetail from "./pages/StoreDetails"; // Added StoreDetail Import
-import StoreAdmins from "./pages/StoreAdmin"; 
+import Stores from "./pages/Stores";
+import StoreDetail from "./pages/StoreDetails";
+import StoreAdmins from "./pages/StoreAdmin";
 import Riders from "./pages/Riders";
 import RiderDetail from "./pages/RiderDetail";
+import UsersPage from "./pages/Users";
+import RolesPage from "./pages/Roles";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +74,18 @@ const App = () => (
             <Route path="/riders/:id" element={
               <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FRANCHISE_ADMIN']}>
                 <RiderDetail />
+              </ProtectedRoute>
+            } />
+
+            {/* IAM Management — Super Admin Only */}
+            <Route path="/users" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <UsersPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/roles" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <RolesPage />
               </ProtectedRoute>
             } />
 
