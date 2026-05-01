@@ -32,7 +32,7 @@ export const franchisesApi = {
   },
 
   getMyFranchise: async () => {
-    const response = await axiosInstance.get(`${API_BASE_URL}/franchises/me`);
+    const response = await axiosInstance.get(`${API_BASE_URL}/franchises/me/franchise`);
     return response.data;
   },
 };

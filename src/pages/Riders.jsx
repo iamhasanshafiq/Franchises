@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useRiders } from '../hooks/useRiders';
 import { useCities } from '../hooks/useCities';
 import { useFranchises } from '../hooks/useFranchises';
+import { useAuth } from '../hooks/useAuth';
 import { uploadFiles } from '../utils/fileUpload';
 import TableSkeleton from '../components/common/TableSkeleton';
 
@@ -33,10 +34,13 @@ const INITIAL_FORM_STATE = {
 
 const Riders = () => {
   const navigate = useNavigate();
+  const { isFranchiseAdmin } = useAuth();
 
   const { riders, loading: ridersLoading, fetchRiders, createRider } = useRiders();
   const { cities, fetchCities } = useCities();
-  const { franchises, loading: franchisesLoading, fetchFranchises } = useFranchises();
+  const { franchises, myFranchise, loading: franchisesLoading, fetchFranchises, fetchMyFranchise } = useFranchises();
+
+  const franchiseList = isFranchiseAdmin() ? (myFranchise ? [myFranchise] : []) : franchises;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -50,11 +54,15 @@ const Riders = () => {
   useEffect(() => {
     fetchRiders();
     fetchCities({ page: 1, limit: 100 });
-    fetchFranchises({ page: 1, limit: 100 });
+    if (isFranchiseAdmin()) {
+      fetchMyFranchise();
+    } else {
+      fetchFranchises({ page: 1, limit: 100 });
+    }
   }, []);
 
   const openModal = () => {
-    const defaultFranchise = franchises?.[0];
+    const defaultFranchise = franchiseList?.[0];
     setFormData({
       ...INITIAL_FORM_STATE,
       franchiseId: defaultFranchise?.id || '',
@@ -200,7 +208,7 @@ const Riders = () => {
                     <SelectValue placeholder="Select Franchise" />
                   </SelectTrigger>
                   <SelectContent>
-                    {franchises.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                    {franchiseList.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

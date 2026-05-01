@@ -180,7 +180,7 @@ export default function RiderDetail() {
                     )}
                   </div>
                   <div className="mt-4 space-y-1">
-                    <p className="text-[10px] opacity-70">STATUS: {wallet?.isActive ? 'ACTIVE' : 'LOCKED'}</p>
+                    <p className="text-[10px] opacity-70">STATUS: {wallet?.status === 'ACTIVE' ? 'ACTIVE' : 'LOCKED'}</p>
                     <p className="text-[10px] opacity-70">CURRENCY: {wallet?.currency || 'PKR'}</p>
                   </div>
                 </CardContent>

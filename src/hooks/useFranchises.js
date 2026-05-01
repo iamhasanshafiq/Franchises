@@ -118,10 +118,10 @@ export const useFranchises = () => {
     setError(null);
     try {
       const response = await franchisesApi.getMyFranchise();
-      const data = response.data || response;
-      // Response: { status: "success", data: { items: [{ id, cityId, name, code, city: { id, name, ... } }] } }
-      setMyFranchise(data.items?.[0] || null);
-      return data.items?.[0] || null;
+      // Backend returns a single franchise object: { status: 'success', data: { id, name, cityId, city, ... } }
+      const franchise = response.data || response;
+      setMyFranchise(franchise || null);
+      return franchise || null;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch my franchise');
       toast({

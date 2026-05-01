@@ -19,6 +19,10 @@ import TableSkeleton from '../components/common/TableSkeleton';
 import { toast } from '../hooks/use-toast';
 import { usersApi } from '../api/users.api';
 import { rolesApi } from '../api/roles.api';
+import { citiesApi } from '../api/cities.api';
+import { franchisesApi } from '../api/franchises.api';
+import axiosInstance from '../api/axios.config';
+import { FRANCHISE_URL } from '../config/serviceUrls';
 import {
   Users as UsersIcon,
   Plus,
@@ -68,6 +72,37 @@ export default function UsersPage() {
   const [scopeType, setScopeType] = useState('GLOBAL');
   const [scopeId, setScopeId] = useState('');
   const [assigningScope, setAssigningScope] = useState(false);
+
+  // scope dropdown items
+  const [scopeItems, setScopeItems] = useState([]);
+  const [scopeItemsLoading, setScopeItemsLoading] = useState(false);
+
+  const fetchScopeItems = useCallback(async (type) => {
+    if (type === 'GLOBAL') { setScopeItems([]); return; }
+    setScopeItemsLoading(true);
+    setScopeItems([]);
+    try {
+      let items = [];
+      if (type === 'CITY') {
+        const res = await citiesApi.getAll(1, 100);
+        const inner = res?.data || res;
+        items = inner?.items || [];
+      } else if (type === 'FRANCHISE') {
+        const res = await franchisesApi.getAll(1, 100);
+        const inner = res?.data || res;
+        items = inner?.items || [];
+      } else if (type === 'STORE') {
+        const res = await axiosInstance.get(`${FRANCHISE_URL}/stores`, { params: { page: 1, limit: 100 } });
+        const inner = res?.data?.data || res?.data || {};
+        items = inner?.items || [];
+      }
+      setScopeItems(items);
+    } catch {
+      setScopeItems([]);
+    } finally {
+      setScopeItemsLoading(false);
+    }
+  }, []);
 
   const fetchRoles = useCallback(async () => {
     try {
@@ -184,6 +219,7 @@ export default function UsersPage() {
       if (scope?.scopeType) {
         setScopeType(scope.scopeType);
         setScopeId(scope.scopeId || '');
+        fetchScopeItems(scope.scopeType);
       }
     } catch {
       // no scope yet — that's fine
@@ -418,7 +454,7 @@ export default function UsersPage() {
                 <Label className="text-xs font-bold uppercase text-slate-500">Scope Type *</Label>
                 <Select
                   value={staffForm.scopeType}
-                  onValueChange={(v) => setStaffForm({ ...staffForm, scopeType: v, scopeId: '' })}
+                  onValueChange={(v) => { setStaffForm({ ...staffForm, scopeType: v, scopeId: '' }); fetchScopeItems(v); }}
                 >
                   <SelectTrigger className="h-11 rounded-xl">
                     <SelectValue />
@@ -431,9 +467,25 @@ export default function UsersPage() {
               {staffForm.scopeType !== 'GLOBAL' && (
                 <div className="space-y-1">
                   <Label className="text-xs font-bold uppercase text-slate-500">Scope ID *</Label>
-                  <Input className="h-11 rounded-xl" placeholder="UUID of city / franchise / store"
+                  <Select
                     value={staffForm.scopeId}
-                    onChange={(e) => setStaffForm({ ...staffForm, scopeId: e.target.value })} />
+                    onValueChange={(v) => setStaffForm({ ...staffForm, scopeId: v })}
+                    disabled={scopeItemsLoading}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue placeholder={scopeItemsLoading ? 'Loading...' : `Select ${staffForm.scopeType.toLowerCase()}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {scopeItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}{item.code ? ` (${item.code})` : ''}
+                        </SelectItem>
+                      ))}
+                      {!scopeItemsLoading && scopeItems.length === 0 && (
+                        <SelectItem value="__empty__" disabled>No items found</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>
@@ -486,7 +538,7 @@ export default function UsersPage() {
           </p>
           <div className="space-y-1">
             <Label className="text-xs font-bold uppercase text-slate-500">Scope Type</Label>
-            <Select value={scopeType} onValueChange={(v) => { setScopeType(v); if (v === 'GLOBAL') setScopeId(''); }}>
+            <Select value={scopeType} onValueChange={(v) => { setScopeType(v); setScopeId(''); fetchScopeItems(v); }}>
               <SelectTrigger className="h-11 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
@@ -498,8 +550,25 @@ export default function UsersPage() {
           {scopeType !== 'GLOBAL' && (
             <div className="space-y-1">
               <Label className="text-xs font-bold uppercase text-slate-500">Scope ID</Label>
-              <Input className="h-11 rounded-xl" placeholder="UUID" value={scopeId}
-                onChange={(e) => setScopeId(e.target.value)} />
+              <Select
+                value={scopeId}
+                onValueChange={setScopeId}
+                disabled={scopeItemsLoading}
+              >
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder={scopeItemsLoading ? 'Loading...' : `Select ${scopeType.toLowerCase()}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {scopeItems.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}{item.code ? ` (${item.code})` : ''}
+                    </SelectItem>
+                  ))}
+                  {!scopeItemsLoading && scopeItems.length === 0 && (
+                    <SelectItem value="__empty__" disabled>No items found</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           )}
           {scopeTarget?.scopeType && (

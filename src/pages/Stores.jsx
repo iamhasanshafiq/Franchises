@@ -14,6 +14,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import TableSkeleton from '../components/common/TableSkeleton';
 import { FRANCHISE_URL, joinUrl } from "../config/serviceUrls";
+import { useAuth } from "../hooks/useAuth";
 
 const BASE_URL = FRANCHISE_URL;
 const GOOGLE_MAPS_API_KEY = "AIzaSyDP6KnwXJ9tyIbT4qAC7XIX3rdmqABnVco";
@@ -21,6 +22,7 @@ const LIBRARIES = ["places"];
 
 const Stores = () => {
   const navigate = useNavigate();
+  const { isFranchiseAdmin } = useAuth();
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -68,18 +70,20 @@ const Stores = () => {
   const refreshData = useCallback(async () => {
     setLoading(true);
     try {
-      const [storeRes, meRes] = await Promise.all([
-        apiCall("/stores?page=1&limit=100"),
-        apiCall("/franchises/me/franchise"),
-      ]);
+      const storeRes = await apiCall("/stores?page=1&limit=100");
       setStores(storeRes.data?.data?.items || storeRes.data?.data || []);
-      if (meRes.data?.status === "success") setMyFranchise(meRes.data.data);
+
+      // Only FRANCHISE_ADMIN has this endpoint — SUPER_ADMIN would get 403
+      if (isFranchiseAdmin()) {
+        const meRes = await apiCall("/franchises/me/franchise");
+        if (meRes.data?.status === "success") setMyFranchise(meRes.data.data);
+      }
     } catch (err) {
       toast.error("Network synchronization failed");
     } finally {
       setLoading(false);
     }
-  }, [apiCall]);
+  }, [apiCall, isFranchiseAdmin]);
 
   useEffect(() => { refreshData(); }, [refreshData]);
 
@@ -119,16 +123,26 @@ const Stores = () => {
     }));
   };
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!myFranchise?.id) {
+      toast.error("Franchise not loaded. Please refresh and try again.");
+      return;
+    }
+    if (formData.localStoreid && !UUID_REGEX.test(formData.localStoreid)) {
+      toast.error("Store Identifier must be a valid UUID (e.g. f3c4ece7-9bb5-4a1d-b2c3-446655440000)");
+      return;
+    }
     setFormLoading(true);
     try {
       await apiCall("/stores", "POST", {
         ...formData,
         latitude: Number(formData.latitude),
         longitude: Number(formData.longitude),
-        franchiseId: myFranchise?.id,
-        cityId: myFranchise?.cityId,
+        franchiseId: myFranchise.id,
+        cityId: myFranchise.cityId,
       });
       toast.success("New Hub Provisioned Successfully");
       setModalOpen(false);
@@ -227,7 +241,12 @@ const Stores = () => {
             </div>
 
           </div>
-          <Button onClick={() => setModalOpen(true)} className="w-full md:w-auto bg-orange-600 hover:bg-orange-700 h-11 px-8 rounded-xl shadow-lg shadow-orange-100 transition-all">
+          <Button
+            onClick={() => setModalOpen(true)}
+            disabled={!myFranchise}
+            title={!myFranchise ? "Franchise data not loaded" : ""}
+            className="w-full md:w-auto bg-orange-600 hover:bg-orange-700 h-11 px-8 rounded-xl shadow-lg shadow-orange-100 transition-all disabled:opacity-50"
+          >
             <Plus size={18} className="mr-2" /> Register New Store
           </Button>
         </div>
