@@ -14,14 +14,16 @@ import { useFranchises } from '../hooks/useFranchises';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 const FranchiseAdmins = () => {
-  const { admins, loading, fetchAdmins, createAdmin, deleteAdmin } = useFranchiseAdmins();
+  const { admins, loading, fetchAdmins, createAdmin, deleteAdmin, changeStatus } = useFranchiseAdmins();
   const { franchises, fetchFranchises } = useFranchises();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
   const [formData, setFormData] = useState({
     franchiseId: '',
     fullName: '',
@@ -41,7 +43,19 @@ const FranchiseAdmins = () => {
     { key: 'phone', label: 'Contact', render: (val) => val || '-' },
     { key: 'franchise', label: 'Franchise Node', render: (val) => val?.name || 'N/A' },
     { key: 'role', label: 'Role', render: (val) => <span className="text-xs font-bold uppercase">{val}</span> },
-    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (val, row) => (
+        <button
+          onClick={() => handleStatusClick(row)}
+          title={val === 'ACTIVE' ? 'Click to suspend' : 'Click to activate'}
+          className="cursor-pointer hover:opacity-70 transition-opacity"
+        >
+          <StatusBadge status={val} />
+        </button>
+      ),
+    },
     {
       key: 'actions',
       label: 'Actions',
@@ -56,6 +70,26 @@ const FranchiseAdmins = () => {
   const handleDeleteClick = (admin) => {
     setSelectedAdmin(admin);
     setConfirmOpen(true);
+  };
+
+  const handleStatusClick = (admin) => {
+    setSelectedAdmin(admin);
+    setStatusConfirmOpen(true);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!selectedAdmin) return;
+    const newStatus = selectedAdmin.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    try {
+      setStatusLoading(true);
+      await changeStatus(selectedAdmin.id, newStatus);
+    } catch (error) {
+      console.error('Status change error:', error);
+    } finally {
+      setStatusLoading(false);
+      setStatusConfirmOpen(false);
+      setSelectedAdmin(null);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -192,6 +226,21 @@ const FranchiseAdmins = () => {
         title="Revoke Admin Access"
         message={`Are you sure you want to permanently remove access for ${selectedAdmin?.fullName}?`}
         loading={deleteLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={statusConfirmOpen}
+        onClose={() => { setStatusConfirmOpen(false); setSelectedAdmin(null); }}
+        onConfirm={handleConfirmStatusChange}
+        title={selectedAdmin?.status === 'ACTIVE' ? 'Suspend Admin' : 'Activate Admin'}
+        message={
+          selectedAdmin?.status === 'ACTIVE'
+            ? `Suspend access for ${selectedAdmin?.fullName}? They will not be able to log in until reactivated.`
+            : `Reactivate access for ${selectedAdmin?.fullName}? They will regain full login access.`
+        }
+        confirmText={selectedAdmin?.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+        variant={selectedAdmin?.status === 'ACTIVE' ? 'destructive' : 'default'}
+        loading={statusLoading}
       />
     </DashboardLayout>
   );

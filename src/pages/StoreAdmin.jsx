@@ -1,31 +1,33 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
+import ConfirmDialog from '../components/common/ConfirmDialog';
+import StatusBadge from '../components/common/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
-import { UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Eye, Trash2 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Trash2 } from 'lucide-react';
 import TableSkeleton from '../components/common/TableSkeleton';
-import { FRANCHISE_URL, joinUrl } from "../config/serviceUrls";
-
-const BASE_URL = FRANCHISE_URL;
+import { useStoreAdmins } from '../hooks/useStoreAdmins';
+import { storesApi } from '../api/stores.api';
 
 const StoreAdmins = () => {
-  const navigate = useNavigate();
-  const { role } = useAuth();
-  const [admins, setAdmins] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const { admins, loading, fetchAdmins, createAdmin, changeStatus, deleteAdmin } = useStoreAdmins();
   const [stores, setStores] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     storeId: '',
@@ -35,65 +37,75 @@ const StoreAdmins = () => {
     phone: ''
   });
 
-  const apiCall = useCallback(async (endpoint, method = 'GET', data = null) => {
-    const token = localStorage.getItem('access_token');
-    return axios({
-      method,
-      url: joinUrl(BASE_URL, endpoint),
-      headers: { Authorization: `Bearer ${token}` },
-      data
-    });
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const adminRes = await apiCall('/store-admins?page=1&limit=50');
-      setAdmins(adminRes.data?.data?.items || adminRes.data?.data || []);
-      const storeRes = await apiCall('/stores?limit=100');
-      setStores(storeRes.data?.data?.items || storeRes.data?.data || []);
-    } catch (err) {
-      toast.error("Failed to load store management data");
-    } finally {
-      setLoading(false);
-    }
-  }, [apiCall]);
-
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchAdmins();
+    storesApi.getAll(1, 100).then(res => {
+      const data = res.data || res;
+      setStores(data.items || data || []);
+    }).catch(() => toast.error('Failed to load stores'));
+  }, [fetchAdmins]);
+
   const filteredAdmins = useMemo(() => {
     if (!searchTerm) return admins;
-
-    return admins.filter((admin) => {
-      const name = admin.fullName?.toLowerCase() || '';
-      const email = admin.email?.toLowerCase() || '';
-      const phone = admin.phone?.toLowerCase() || '';
-      const store = admin.store?.name?.toLowerCase() || '';
-
-      const search = searchTerm.toLowerCase();
-
-      return (
-        name.includes(search) ||
-        email.includes(search) ||
-        phone.includes(search) ||
-        store.includes(search)
-      );
-    });
+    const s = searchTerm.toLowerCase();
+    return admins.filter(a =>
+      a.fullName?.toLowerCase().includes(s) ||
+      a.email?.toLowerCase().includes(s) ||
+      a.phone?.toLowerCase().includes(s) ||
+      a.store?.name?.toLowerCase().includes(s)
+    );
   }, [admins, searchTerm]);
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setFormLoading(true);
     try {
-      await apiCall('/store-admins', 'POST', formData);
-      toast.success("Store Admin credentials generated");
+      await createAdmin(formData);
       setModalOpen(false);
       setFormData({ storeId: '', fullName: '', email: '', password: '', phone: '' });
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Creation failed");
+    } catch {
+      // error toast handled in hook
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleStatusClick = (admin) => {
+    setSelectedAdmin(admin);
+    setStatusConfirmOpen(true);
+  };
+
+  const handleConfirmStatus = async () => {
+    if (!selectedAdmin) return;
+    const newStatus = selectedAdmin.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    try {
+      setStatusLoading(true);
+      await changeStatus(selectedAdmin.id, newStatus);
+    } catch {
+      // error toast handled in hook
+    } finally {
+      setStatusLoading(false);
+      setStatusConfirmOpen(false);
+      setSelectedAdmin(null);
+    }
+  };
+
+  const handleDeleteClick = (admin) => {
+    setSelectedAdmin(admin);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedAdmin) return;
+    try {
+      setDeleteLoading(true);
+      await deleteAdmin(selectedAdmin.id);
+    } catch {
+      // error toast handled in hook
+    } finally {
+      setDeleteLoading(false);
+      setDeleteConfirmOpen(false);
+      setSelectedAdmin(null);
     }
   };
 
@@ -111,7 +123,6 @@ const StoreAdmins = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 h-11 rounded-xl bg-gray-50 border-none focus:ring-2 focus:ring-orange-500"
             />
-
           </div>
           <Button onClick={() => setModalOpen(true)} className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 h-11 px-8 rounded-xl shadow-lg shadow-orange-100 transition-all">
             <UserPlus size={18} className="mr-2" /> Add Store Admin
@@ -124,7 +135,6 @@ const StoreAdmins = () => {
           ) : (
             <DataTable
               data={filteredAdmins}
-
               columns={[
                 {
                   key: 'fullName',
@@ -157,24 +167,36 @@ const StoreAdmins = () => {
                   render: (val) => <span className="text-xs font-mono">{val}</span>
                 },
                 {
+                  key: 'status',
+                  label: 'Status',
+                  render: (val, row) => (
+                    <button
+                      onClick={() => handleStatusClick(row)}
+                      title={val === 'ACTIVE' ? 'Click to suspend' : 'Click to activate'}
+                      className="cursor-pointer hover:opacity-70 transition-opacity"
+                    >
+                      <StatusBadge status={val} />
+                    </button>
+                  )
+                },
+                {
                   key: 'actions',
-                  label: '',
+                  label: 'Actions',
                   render: (_, row) => (
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" className="text-gray-400 hover:text-orange-600">
-                        <Eye size={16} />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-600">
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-gray-400 hover:text-red-600"
+                      onClick={() => handleDeleteClick(row)}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
                   )
                 }
               ]}
             />
           )}
         </div>
-
       </div>
 
       {modalOpen && (
@@ -241,6 +263,32 @@ const StoreAdmins = () => {
           </form>
         </Modal>
       )}
+
+      <ConfirmDialog
+        isOpen={statusConfirmOpen}
+        onClose={() => { setStatusConfirmOpen(false); setSelectedAdmin(null); }}
+        onConfirm={handleConfirmStatus}
+        title={selectedAdmin?.status === 'ACTIVE' ? 'Suspend Admin' : 'Activate Admin'}
+        message={
+          selectedAdmin?.status === 'ACTIVE'
+            ? `Suspend access for ${selectedAdmin?.fullName}? They will not be able to log in until reactivated.`
+            : `Reactivate access for ${selectedAdmin?.fullName}? They will regain full login access.`
+        }
+        confirmText={selectedAdmin?.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+        variant={selectedAdmin?.status === 'ACTIVE' ? 'destructive' : 'default'}
+        loading={statusLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => { setDeleteConfirmOpen(false); setSelectedAdmin(null); }}
+        onConfirm={handleConfirmDelete}
+        title="Remove Store Admin"
+        message={`Permanently remove ${selectedAdmin?.fullName}? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="destructive"
+        loading={deleteLoading}
+      />
     </DashboardLayout>
   );
 };

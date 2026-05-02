@@ -76,7 +76,8 @@ export const useRiders = () => {
       });
       return response;
     } catch (err) {
-      const message = err.response?.data?.message || 'Failed to create rider';
+      const raw = err.response?.data?.message;
+      const message = Array.isArray(raw) ? raw.join(', ') : (raw || 'Failed to create rider');
       toast({
         title: 'Error',
         description: message,

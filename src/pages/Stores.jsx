@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete } from "@react-google-maps/api";
-import { Plus, Search, MapPin, Eye, Map as MapIcon, Loader2, Hash, Navigation } from "lucide-react";
+import { Plus, Search, MapPin, Eye, Map as MapIcon, Loader2, Hash, Navigation, Trash2, SquarePen } from "lucide-react";
 import { toast } from "sonner";
 import Header from "../components/common/Header";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import DataTable from "../components/common/DataTable";
 import Modal from "../components/common/Modal";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 import StatusBadge from "../components/common/StatusBadge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -15,6 +16,8 @@ import { Label } from "../components/ui/label";
 import TableSkeleton from '../components/common/TableSkeleton';
 import { FRANCHISE_URL, joinUrl } from "../config/serviceUrls";
 import { useAuth } from "../hooks/useAuth";
+import { useStores } from "../hooks/useStores";
+import { storesApi } from "../api/stores.api";
 
 const BASE_URL = FRANCHISE_URL;
 const GOOGLE_MAPS_API_KEY = "AIzaSyDP6KnwXJ9tyIbT4qAC7XIX3rdmqABnVco";
@@ -22,14 +25,18 @@ const LIBRARIES = ["places"];
 
 const Stores = () => {
   const navigate = useNavigate();
-  const { isFranchiseAdmin } = useAuth();
-  const [stores, setStores] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { isFranchiseAdmin, isAdmin } = useAuth();
+  const { stores, loading: storesLoading, fetchStores, hardDeleteStore } = useStores();
   const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [myFranchise, setMyFranchise] = useState(null);
+  const [franchiseLoading, setFranchiseLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [selectedStore, setSelectedStore] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const loading = storesLoading || franchiseLoading;
 
   const autocompleteRef = useRef(null);
 
@@ -67,25 +74,23 @@ const Stores = () => {
     });
   }, []);
 
-  const refreshData = useCallback(async () => {
-    setLoading(true);
+  const fetchMyFranchise = useCallback(async () => {
+    if (!isFranchiseAdmin()) return;
+    setFranchiseLoading(true);
     try {
-      const storeRes = await apiCall("/stores?page=1&limit=100");
-      setStores(storeRes.data?.data?.items || storeRes.data?.data || []);
-
-      // Only FRANCHISE_ADMIN has this endpoint — SUPER_ADMIN would get 403
-      if (isFranchiseAdmin()) {
-        const meRes = await apiCall("/franchises/me/franchise");
-        if (meRes.data?.status === "success") setMyFranchise(meRes.data.data);
-      }
+      const meRes = await apiCall("/franchises/me/franchise");
+      if (meRes.data?.status === "success") setMyFranchise(meRes.data.data);
     } catch (err) {
-      toast.error("Network synchronization failed");
+      toast.error("Failed to load franchise data");
     } finally {
-      setLoading(false);
+      setFranchiseLoading(false);
     }
   }, [apiCall, isFranchiseAdmin]);
 
-  useEffect(() => { refreshData(); }, [refreshData]);
+  useEffect(() => {
+    fetchStores();
+    fetchMyFranchise();
+  }, [fetchStores, fetchMyFranchise]);
 
   const handleMapClick = (e) => {
     if (!window.google || !e?.latLng) return;
@@ -137,7 +142,7 @@ const Stores = () => {
     }
     setFormLoading(true);
     try {
-      await apiCall("/stores", "POST", {
+      await storesApi.create({
         ...formData,
         latitude: Number(formData.latitude),
         longitude: Number(formData.longitude),
@@ -146,7 +151,7 @@ const Stores = () => {
       });
       toast.success("New Hub Provisioned Successfully");
       setModalOpen(false);
-      refreshData();
+      fetchStores();
     } catch (err) {
       toast.error(
         err?.response?.data?.message ||
@@ -179,6 +184,25 @@ const Stores = () => {
     ? Math.ceil(filteredStores.length / itemsPerPage)
     : 1;
 
+  const handleDeleteClick = (store) => {
+    setSelectedStore(store);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedStore) return;
+    try {
+      setDeleteLoading(true);
+      await hardDeleteStore(selectedStore.id);
+    } catch {
+      // error toast handled in hook
+    } finally {
+      setDeleteLoading(false);
+      setDeleteConfirmOpen(false);
+      setSelectedStore(null);
+    }
+  };
+
   const columns = useMemo(() => [
     {
       key: "name",
@@ -201,14 +225,31 @@ const Stores = () => {
     { key: "status", label: "Status", render: (v) => <StatusBadge status={v} /> },
     {
       key: "actions",
-      label: "",
+      label: "Actions",
       render: (_, r) => (
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/stores/${r.id}`)}>
-          <Eye size={16} className="mr-2" /> Details
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/stores/${r.id}`)}>
+            <Eye size={16} className="mr-2" /> Details
+          </Button>
+          {isFranchiseAdmin() && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className=""
+              onClick={() => navigate(`/stores/${r.id}`, { state: { editMode: true } })}
+            >
+              <SquarePen size={16} className="mr-2" /> Edit
+            </Button>
+          )}
+          {isAdmin() && (
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-600" onClick={() => handleDeleteClick(r)}>
+              <Trash2 size={15} />
+            </Button>
+          )}
+        </div>
       ),
     },
-  ], [navigate]);
+  ], [navigate, isAdmin]);
 
   return (
     <DashboardLayout>
@@ -311,6 +352,17 @@ const Stores = () => {
         )}
 
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => { setDeleteConfirmOpen(false); setSelectedStore(null); }}
+        onConfirm={handleConfirmDelete}
+        title="Permanently Delete Store"
+        message={`This will permanently remove "${selectedStore?.name}". All linked admins must be removed first. This action cannot be undone.`}
+        confirmText="Delete"
+        variant="destructive"
+        loading={deleteLoading}
+      />
 
       {modalOpen && (
         <Modal isOpen onClose={() => setModalOpen(false)} title="Register Store Hub" size="xl">

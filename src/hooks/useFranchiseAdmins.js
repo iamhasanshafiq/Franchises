@@ -89,6 +89,28 @@ export const useFranchiseAdmins = () => {
     }
   };
 
+  const changeStatus = async (id, status) => {
+    try {
+      const response = await franchiseAdminsApi.changeStatus(id, status);
+      setAdmins((prev) =>
+        prev.map((admin) => (admin.id === id ? { ...admin, status } : admin))
+      );
+      toast({
+        title: 'Status Updated',
+        description: `Admin has been ${status === 'ACTIVE' ? 'activated' : 'suspended'} successfully`,
+      });
+      return response;
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to update admin status';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+      throw new Error(message);
+    }
+  };
+
   return {
     admins,
     loading,
@@ -97,5 +119,6 @@ export const useFranchiseAdmins = () => {
     fetchAdmins,
     createAdmin,
     deleteAdmin,
+    changeStatus,
   };
 };

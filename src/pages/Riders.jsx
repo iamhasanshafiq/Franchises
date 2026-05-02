@@ -110,11 +110,9 @@ const Riders = () => {
           documentUrl
         }))
       });
-      toast.success('Rider created successfully');
       setModalOpen(false);
-      fetchRiders();
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Failed to create rider');
+    } catch {
+      // error toast already shown by hook
     } finally {
       setFormLoading(false);
     }

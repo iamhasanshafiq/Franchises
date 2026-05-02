@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import TableSkeleton from '../components/common/TableSkeleton';
-import { Store, ArrowUpCircle, ArrowDownCircle, History, MapPin, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
+import { Store, ArrowUpCircle, ArrowDownCircle, History, MapPin, ShieldCheck, Loader2, RefreshCw, X } from "lucide-react";
 import Header from "../components/common/Header";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import StatusBadge from "../components/common/StatusBadge";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -14,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { FRANCHISE_URL, WALLET_URL } from "../config/serviceUrls";
+import { useAuth } from "../hooks/useAuth";
 
 const WALLET_BASE = WALLET_URL;
 const STORE_BASE = FRANCHISE_URL;
@@ -21,6 +23,8 @@ const STORE_BASE = FRANCHISE_URL;
 export default function StoreDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAdmin, isFranchiseAdmin } = useAuth();
 
   const walletApi = useMemo(() => axios.create({
     baseURL: WALLET_BASE,
@@ -42,11 +46,20 @@ export default function StoreDetail() {
   const [creditReason, setCreditReason] = useState("STORE_TOPUP");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isEditMode, setIsEditMode] = useState(!!location.state?.editMode);
+  const [originalStore, setOriginalStore] = useState(null);
+
+  const [statusConfirm, setStatusConfirm] = useState({ open: false, status: null, label: '' });
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const loadStoreData = useCallback(async () => {
     setLoadingStore(true);
     try {
       const res = await storeApi.get(`/stores/${id}`);
       setStore(res.data?.data);
+      setOriginalStore(res.data?.data);
     } catch (e) {
       toast.error("Failed to load store details");
     } finally {
@@ -95,6 +108,7 @@ const handleUpdateStore = async () => {
     console.log("Update Response:", res.data);
 
     toast.success("Store details updated");
+    setIsEditMode(false);
     loadStoreData();
   } catch (e) {
     console.error("Update Error:", e.response?.data || e.message);
@@ -124,6 +138,35 @@ const handleUpdateStore = async () => {
       setIsSubmitting(false);
     }
   };
+  const handleChangeStatus = async () => {
+    if (!statusConfirm.status) return;
+    setStatusLoading(true);
+    try {
+      await storeApi.patch(`/stores/${id}/status`, { status: statusConfirm.status });
+      toast.success(`Store set to ${statusConfirm.status}`);
+      setStore(prev => ({ ...prev, status: statusConfirm.status }));
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Status update failed');
+    } finally {
+      setStatusLoading(false);
+      setStatusConfirm({ open: false, status: null, label: '' });
+    }
+  };
+
+  const handleHardDelete = async () => {
+    setDeleteLoading(true);
+    try {
+      await storeApi.delete(`/stores/${id}/hard`);
+      toast.success('Store permanently deleted');
+      navigate('/stores');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Deletion failed');
+    } finally {
+      setDeleteLoading(false);
+      setDeleteConfirmOpen(false);
+    }
+  };
+
   if (loadingStore) {
     return (
       <DashboardLayout>
@@ -170,78 +213,112 @@ const handleUpdateStore = async () => {
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="bg-muted/50 p-1 mb-6">
             <TabsTrigger value="info">Hub Information</TabsTrigger>
-            <TabsTrigger value="wallet">Wallet & Finance</TabsTrigger>
-            <TabsTrigger value="settings">Admin Controls</TabsTrigger>
+            {isEditMode && <TabsTrigger value="wallet">Wallet & Finance</TabsTrigger>}
+            {isEditMode && <TabsTrigger value="settings">Admin Controls</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="info">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Edit Hub Details</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">Hub Details</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Store Name</Label>
-                    <Input
-                      value={store?.name}
-                      onChange={e => setStore(p => ({ ...p, name: e.target.value }))}
-                    />
+                    {isEditMode ? (
+                      <Input
+                        value={store?.name ?? ''}
+                        onChange={e => setStore(p => ({ ...p, name: e.target.value }))}
+                      />
+                    ) : (
+                      <p className="h-10 flex items-center px-3 rounded-md bg-muted text-sm font-medium">{store?.name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Local Store ID</Label>
-                    <Input disabled value={store?.localStoreid} className="bg-muted font-mono" />
+                    <p className="h-10 flex items-center px-3 rounded-md bg-muted text-sm font-mono text-muted-foreground">{store?.localStoreid}</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Full Address</Label>
-                  <Input
-                    value={store?.address}
-                    onChange={e => setStore(p => ({ ...p, address: e.target.value }))}
-                  />
+                  {isEditMode ? (
+                    <Input
+                      value={store?.address ?? ''}
+                      onChange={e => setStore(p => ({ ...p, address: e.target.value }))}
+                    />
+                  ) : (
+                    <p className="h-10 flex items-center px-3 rounded-md bg-muted text-sm">{store?.address}</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Latitude</Label><Input disabled value={store?.latitude} /></div>
-                  <div className="space-y-2"><Label>Longitude</Label><Input disabled value={store?.longitude} /></div>
+                  <div className="space-y-2">
+                    <Label>Latitude</Label>
+                    <p className="h-10 flex items-center px-3 rounded-md bg-muted text-sm font-mono text-muted-foreground">{store?.latitude}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Longitude</Label>
+                    <p className="h-10 flex items-center px-3 rounded-md bg-muted text-sm font-mono text-muted-foreground">{store?.longitude}</p>
+                  </div>
                 </div>
-                <Button onClick={handleUpdateStore} className="mt-4">Save Hub Information</Button>
+                {isEditMode && (
+                  <div className="flex gap-3 pt-2 border-t mt-2">
+                    <Button
+                      variant="ghost"
+                      className="gap-2"
+                      onClick={() => { setStore(originalStore); setIsEditMode(false); setTab('info'); }}
+                    >
+                      <X size={14} /> Cancel
+                    </Button>
+                    <Button onClick={handleUpdateStore} className="gap-2">
+                      Save Hub Information
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="wallet" className="space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
-              {/* Quick Credit Card */}
-              <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <ArrowUpCircle className="text-emerald-500" /> Credit Hub Wallet
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 space-y-2">
-                    <Label>Top-up Amount (PKR)</Label>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={creditAmount}
-                      onChange={e => setCreditAmount(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <Label>Adjustment Reason</Label>
-                    <Select value={creditReason} onValueChange={setCreditReason}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="STORE_TOPUP">Standard Store Top-up</SelectItem>
-                        <SelectItem value="REVENUE_SHARE">Monthly Revenue Share</SelectItem>
-                        <SelectItem value="CORRECTION">Ledger Rectification</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button className="md:mt-8 h-10 px-10" onClick={handleCredit} disabled={isSubmitting || loadingWallet}>
-                    {isSubmitting ? <Loader2 className="animate-spin" /> : "Apply Credit"}
-                  </Button>
-                </CardContent>
-              </Card>
+              {isEditMode ? (
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <ArrowUpCircle className="text-emerald-500" /> Credit Hub Wallet
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1 space-y-2">
+                      <Label>Top-up Amount (PKR)</Label>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={creditAmount}
+                        onChange={e => setCreditAmount(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label>Adjustment Reason</Label>
+                      <Select value={creditReason} onValueChange={setCreditReason}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="STORE_TOPUP">Standard Store Top-up</SelectItem>
+                          <SelectItem value="REVENUE_SHARE">Monthly Revenue Share</SelectItem>
+                          <SelectItem value="CORRECTION">Ledger Rectification</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="md:mt-8 h-10 px-10" onClick={handleCredit} disabled={isSubmitting || loadingWallet}>
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : "Apply Credit"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="md:col-span-2 flex items-center justify-center p-8 border-dashed text-center text-gray-400">
+                  <p className="text-sm">Credit operations are available in edit mode only.</p>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader><CardTitle className="text-sm uppercase text-gray-500 font-bold">Wallet Health</CardTitle></CardHeader>
@@ -314,17 +391,70 @@ const handleUpdateStore = async () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                <p className="text-sm text-slate-600">Modify the operational status of this Hub. This will affect order routing and rider pickups instantly.</p>
-                <div className="flex gap-3">
-                  <Button variant="outline" className="text-emerald-600 border-emerald-200">Re-Activate Hub</Button>
-                  <Button variant="outline" className="text-amber-600 border-amber-200">Maintenance Mode</Button>
-                  <Button variant="outline" className="text-rose-600 border-rose-200">De-commission Hub</Button>
-                </div>
+                {isEditMode ? (
+                  <>
+                    <p className="text-sm text-slate-600">Modify the operational status of this Hub. This will affect order routing and rider pickups instantly.</p>
+                    <div className="flex gap-3 flex-wrap">
+                      <Button
+                        variant="outline"
+                        className="text-emerald-600 border-emerald-200"
+                        disabled={store?.status === 'ACTIVE'}
+                        onClick={() => setStatusConfirm({ open: true, status: 'ACTIVE', label: 'Re-Activate Hub' })}
+                      >
+                        Re-Activate Hub
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="text-amber-600 border-amber-200"
+                        disabled={store?.status === 'SUSPENDED'}
+                        onClick={() => setStatusConfirm({ open: true, status: 'SUSPENDED', label: 'Maintenance Mode' })}
+                      >
+                        Maintenance Mode
+                      </Button>
+                      {isAdmin() && (
+                        <Button
+                          variant="outline"
+                          className="text-rose-600 border-rose-200"
+                          onClick={() => setDeleteConfirmOpen(true)}
+                        >
+                          De-commission Hub
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-400">Admin controls are available in edit mode only.</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
+      <ConfirmDialog
+        isOpen={statusConfirm.open}
+        onClose={() => setStatusConfirm({ open: false, status: null, label: '' })}
+        onConfirm={handleChangeStatus}
+        title={statusConfirm.label}
+        message={
+          statusConfirm.status === 'ACTIVE'
+            ? `Reactivate "${store?.name}"? It will immediately resume accepting orders.`
+            : `Put "${store?.name}" into maintenance mode? Order routing will be paused.`
+        }
+        confirmText={statusConfirm.label}
+        variant={statusConfirm.status === 'ACTIVE' ? 'default' : 'destructive'}
+        loading={statusLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleHardDelete}
+        title="De-commission Hub"
+        message={`Permanently delete "${store?.name}"? All linked admins must be removed first. This cannot be undone.`}
+        confirmText="De-commission"
+        variant="destructive"
+        loading={deleteLoading}
+      />
     </DashboardLayout>
   );
 }

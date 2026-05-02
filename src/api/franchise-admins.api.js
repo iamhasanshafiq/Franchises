@@ -25,4 +25,9 @@ export const franchiseAdminsApi = {
     const response = await axiosInstance.delete(`${API_BASE_URL}/franchise-admins/${id}`);
     return response.data;
   },
+
+  changeStatus: async (id, status) => {
+    const response = await axiosInstance.patch(`${API_BASE_URL}/franchise-admins/${id}/status`, { status });
+    return response.data;
+  },
 };
