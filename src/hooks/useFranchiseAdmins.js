@@ -54,7 +54,12 @@ export const useFranchiseAdmins = () => {
       });
       return response;
     } catch (err) {
-      const message = err.response?.data?.message || 'Failed to create franchise admin';
+      const d = err.response?.data;
+      const message =
+        (d?.status === 'fail' && (d?.data?.message || (typeof d?.data === 'object' && Object.values(d?.data ?? {})[0]))) ||
+        d?.message ||
+        err.message ||
+        'Failed to create franchise admin';
       toast({
         title: 'Error',
         description: message,

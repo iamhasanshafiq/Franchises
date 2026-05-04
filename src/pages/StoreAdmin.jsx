@@ -10,7 +10,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
-import { UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Trash2 } from 'lucide-react';
+import { UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Eye, Trash2 } from 'lucide-react';
 import TableSkeleton from '../components/common/TableSkeleton';
 import { useStoreAdmins } from '../hooks/useStoreAdmins';
 import { storesApi } from '../api/stores.api';
@@ -22,8 +22,10 @@ const StoreAdmins = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -58,6 +60,10 @@ const StoreAdmins = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!formData.storeId) {
+      toast.error('Please select a store first.');
+      return;
+    }
     setFormLoading(true);
     try {
       await createAdmin(formData);
@@ -68,6 +74,11 @@ const StoreAdmins = () => {
     } finally {
       setFormLoading(false);
     }
+  };
+
+  const handleViewDetail = (admin) => {
+    setSelectedAdmin(admin);
+    setDetailOpen(true);
   };
 
   const handleStatusClick = (admin) => {
@@ -164,33 +175,29 @@ const StoreAdmins = () => {
                 {
                   key: 'phone',
                   label: 'Contact',
-                  render: (val) => <span className="text-xs font-mono">{val}</span>
+                  render: (val) => <span className="text-xs font-mono">{val || '-'}</span>
                 },
                 {
                   key: 'status',
                   label: 'Status',
                   render: (val, row) => (
-                    <button
-                      onClick={() => handleStatusClick(row)}
-                      title={val === 'ACTIVE' ? 'Click to suspend' : 'Click to activate'}
-                      className="cursor-pointer hover:opacity-70 transition-opacity"
-                    >
+                    <button onClick={() => handleStatusClick(row)} className="cursor-pointer">
                       <StatusBadge status={val} />
                     </button>
                   )
                 },
                 {
                   key: 'actions',
-                  label: 'Actions',
+                  label: '',
                   render: (_, row) => (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-gray-400 hover:text-red-600"
-                      onClick={() => handleDeleteClick(row)}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="icon" className="text-gray-400 hover:text-orange-600" onClick={() => handleViewDetail(row)}>
+                        <Eye size={16} />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-600" onClick={() => handleDeleteClick(row)}>
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
                   )
                 }
               ]}
@@ -199,16 +206,13 @@ const StoreAdmins = () => {
         </div>
       </div>
 
+      {/* Create Modal */}
       {modalOpen && (
         <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="New Store Administrator" size="lg">
           <form onSubmit={handleCreate} className="space-y-6 py-2">
-
             <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 space-y-2">
               <Label className="text-[10px] font-bold uppercase text-orange-700 tracking-wider">Target Store Hub</Label>
-              <Select
-                value={formData.storeId}
-                onValueChange={(val) => setFormData({ ...formData, storeId: val })}
-              >
+              <Select value={formData.storeId} onValueChange={(val) => setFormData({ ...formData, storeId: val })}>
                 <SelectTrigger className="h-11 bg-white border-orange-200">
                   <SelectValue placeholder="Select store for management" />
                 </SelectTrigger>
@@ -232,7 +236,7 @@ const StoreAdmins = () => {
                   <Label className="text-xs font-semibold text-gray-600">Official Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
-                    <Input className="pl-10 h-11" type="email" placeholder="usman.store@barqi.pk" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                    <Input className="pl-10 h-11" type="email" placeholder="store@barqi.pk" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -264,29 +268,65 @@ const StoreAdmins = () => {
         </Modal>
       )}
 
+      {/* Detail Modal */}
+      {detailOpen && selectedAdmin && (
+        <Modal isOpen={detailOpen} onClose={() => { setDetailOpen(false); setSelectedAdmin(null); }} title="Store Admin Details">
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-4">
+              <div className="size-16 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-700 font-bold text-2xl uppercase">
+                {selectedAdmin.fullName?.charAt(0)}
+              </div>
+              <div>
+                <p className="text-lg font-bold text-gray-900">{selectedAdmin.fullName}</p>
+                <p className="text-sm text-gray-500">{selectedAdmin.email}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Phone</p>
+                <p className="text-sm font-medium">{selectedAdmin.phone || '-'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Status</p>
+                <StatusBadge status={selectedAdmin.status} />
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Assigned Store</p>
+                <p className="text-sm font-medium">{selectedAdmin.store?.name || 'Unassigned'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Role</p>
+                <p className="text-sm font-bold uppercase">{selectedAdmin.role}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 col-span-2">
+                <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">Created</p>
+                <p className="text-sm font-medium">{selectedAdmin.createdAt ? new Date(selectedAdmin.createdAt).toLocaleDateString() : '-'}</p>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => { setDetailOpen(false); setSelectedAdmin(null); }} className="rounded-xl">Close</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Status Toggle Confirmation */}
       <ConfirmDialog
         isOpen={statusConfirmOpen}
         onClose={() => { setStatusConfirmOpen(false); setSelectedAdmin(null); }}
         onConfirm={handleConfirmStatus}
         title={selectedAdmin?.status === 'ACTIVE' ? 'Suspend Admin' : 'Activate Admin'}
-        message={
-          selectedAdmin?.status === 'ACTIVE'
-            ? `Suspend access for ${selectedAdmin?.fullName}? They will not be able to log in until reactivated.`
-            : `Reactivate access for ${selectedAdmin?.fullName}? They will regain full login access.`
-        }
-        confirmText={selectedAdmin?.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
-        variant={selectedAdmin?.status === 'ACTIVE' ? 'destructive' : 'default'}
+        message={`Are you sure you want to ${selectedAdmin?.status === 'ACTIVE' ? 'suspend' : 'activate'} ${selectedAdmin?.fullName}?`}
         loading={statusLoading}
       />
 
+      {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
         onClose={() => { setDeleteConfirmOpen(false); setSelectedAdmin(null); }}
         onConfirm={handleConfirmDelete}
         title="Remove Store Admin"
-        message={`Permanently remove ${selectedAdmin?.fullName}? This action cannot be undone.`}
-        confirmText="Delete"
-        variant="destructive"
+        message={`Are you sure you want to permanently remove ${selectedAdmin?.fullName} as store admin?`}
         loading={deleteLoading}
       />
     </DashboardLayout>

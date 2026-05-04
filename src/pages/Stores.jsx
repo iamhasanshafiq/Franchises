@@ -282,14 +282,14 @@ const Stores = () => {
             </div>
 
           </div>
-          <Button
-            onClick={() => setModalOpen(true)}
-            disabled={!myFranchise}
-            title={!myFranchise ? "Franchise data not loaded" : ""}
-            className="w-full md:w-auto bg-orange-600 hover:bg-orange-700 h-11 px-8 rounded-xl shadow-lg shadow-orange-100 transition-all disabled:opacity-50"
-          >
-            <Plus size={18} className="mr-2" /> Register New Store
-          </Button>
+          {isFranchiseAdmin() && (
+            <Button
+              onClick={() => setModalOpen(true)}
+              className="w-full md:w-auto bg-orange-600 hover:bg-orange-700 h-11 px-8 rounded-xl shadow-lg shadow-orange-100 transition-all"
+            >
+              <Plus size={18} className="mr-2" /> Register New Store
+            </Button>
+          )}
         </div>
 
         <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
@@ -364,7 +364,7 @@ const Stores = () => {
         loading={deleteLoading}
       />
 
-      {modalOpen && (
+      {modalOpen && isFranchiseAdmin() && (
         <Modal isOpen onClose={() => setModalOpen(false)} title="Register Store Hub" size="xl">
           <form onSubmit={handleCreate} className="grid grid-cols-1 lg:grid-cols-12 gap-8 p-1">
 

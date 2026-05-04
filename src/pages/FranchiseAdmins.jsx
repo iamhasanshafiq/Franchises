@@ -109,6 +109,10 @@ const FranchiseAdmins = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.franchiseId) {
+      alert('Please select a franchise before provisioning an admin.');
+      return;
+    }
     setFormLoading(true);
     try {
       await createAdmin(formData);
