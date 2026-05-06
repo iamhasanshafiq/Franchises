@@ -14,6 +14,7 @@ import { UserPlus, Search, ShieldCheck, Mail, Lock, Phone, Store, Loader2, Eye, 
 import TableSkeleton from '../components/common/TableSkeleton';
 import { useStoreAdmins } from '../hooks/useStoreAdmins';
 import { storesApi } from '../api/stores.api';
+import { usersApi } from '../api/users.api';
 
 const StoreAdmins = () => {
   const { admins, loading, fetchAdmins, createAdmin, changeStatus, deleteAdmin } = useStoreAdmins();
@@ -31,6 +32,8 @@ const StoreAdmins = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  const [adminsWithUser, setAdminsWithUser] = useState([]);
+
   const [formData, setFormData] = useState({
     storeId: '',
     fullName: '',
@@ -42,21 +45,59 @@ const StoreAdmins = () => {
   useEffect(() => {
     fetchAdmins();
     storesApi.getAll(1, 100).then(res => {
+      console.log("STORES:", res);
       const data = res.data || res;
       setStores(data.items || data || []);
     }).catch(() => toast.error('Failed to load stores'));
   }, [fetchAdmins]);
 
-  const filteredAdmins = useMemo(() => {
-    if (!searchTerm) return admins;
-    const s = searchTerm.toLowerCase();
-    return admins.filter(a =>
-      a.fullName?.toLowerCase().includes(s) ||
-      a.email?.toLowerCase().includes(s) ||
-      a.phone?.toLowerCase().includes(s) ||
-      a.store?.name?.toLowerCase().includes(s)
-    );
-  }, [admins, searchTerm]);
+  useEffect(() => {
+  const loadUsers = async () => {
+    if (!admins || admins.length === 0) return;
+
+const updated = await Promise.all(
+  admins.map(async (admin) => {
+     console.log("ADMIN:", admin); // 👈 yahan
+  console.log("AUTH USER ID:", admin.authUserId); // 👈 yahan
+    try {
+      // 1. IAM call
+      const iamRes = await usersApi.getIamByAuthId(admin.authUserId);
+
+      // 2. AUTH user detail
+      const userRes = await usersApi.getById(admin.authUserId);
+console.log("USER RES:", userRes); 
+      const user = userRes?.data;
+
+      return {
+        ...admin,
+        fullName: user?.name || 'N/A',
+        email: user?.email || 'N/A',
+        phone: user?.phone || 'N/A',
+      };
+    } catch {
+      return admin;
+    }
+  })
+);
+
+    setAdminsWithUser(updated);
+  };
+
+  loadUsers();
+}, [admins]);
+
+const filteredAdmins = useMemo(() => {
+  if (!searchTerm) return adminsWithUser;
+
+  const s = searchTerm.toLowerCase();
+
+  return adminsWithUser.filter(a =>
+    a.fullName?.toLowerCase().includes(s) ||
+    a.email?.toLowerCase().includes(s) ||
+    a.phone?.toLowerCase().includes(s) ||
+    a.store?.name?.toLowerCase().includes(s)
+  );
+}, [adminsWithUser, searchTerm]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -150,17 +191,32 @@ const StoreAdmins = () => {
                 {
                   key: 'fullName',
                   label: 'Administrator',
-                  render: (val, row) => (
-                    <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-700 font-bold uppercase">
-                        {val?.charAt(0)}
+                  render: (val, row) => {
+                    const name =
+                      row.fullName ||
+                      row.name ||
+                      row.user?.fullName ||
+                      row.user?.name ||
+                      '-';
+
+                    const email =
+                      row.email ||
+                      row.user?.email ||
+                      '-';
+
+
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-700 font-bold uppercase">
+                          {name !== '-' ? name.charAt(0) : '?'}
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900">{name}</div>
+                          <div className="text-xs text-gray-400">{email}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-gray-900">{val}</div>
-                        <div className="text-xs text-gray-400">{row.email}</div>
-                      </div>
-                    </div>
-                  )
+                    );
+                  }
                 },
                 {
                   key: 'store',
@@ -175,7 +231,20 @@ const StoreAdmins = () => {
                 {
                   key: 'phone',
                   label: 'Contact',
-                  render: (val) => <span className="text-xs font-mono">{val || '-'}</span>
+                  render: (_, row) => {
+                    const phone =
+                      row.phone ||
+                      row.phoneNumber ||
+                      row.user?.phone ||
+                      row.user?.phoneNumber ||
+                      '-';
+
+                    return (
+                      <span className="text-xs font-mono">
+                        {phone}
+                      </span>
+                    );
+                  }
                 },
                 {
                   key: 'status',

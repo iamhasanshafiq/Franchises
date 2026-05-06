@@ -9,10 +9,18 @@ export const usersApi = {
     return response.data;
   },
 
+
   getById: async (id) => {
     const response = await axiosInstance.get(base(`/users/${id}`));
     return response.data;
   },
+
+getIamByAuthId: async (authUserId) => {
+  const response = await axiosInstance.get(
+    joinUrl(AUTH_URL, `/iam/users/${authUserId}`)
+  );
+  return response.data;
+},
 
   create: async (data) => {
     const response = await axiosInstance.post(base('/users'), data);
