@@ -2,6 +2,7 @@ image: node:18
 
 pages:
   stage: deploy
+
   script:
     - npm install -g pnpm
     - pnpm install
@@ -9,8 +10,10 @@ pages:
     - rm -rf public
     - cp -r dist public
     - cp public/index.html public/404.html
+
   artifacts:
     paths:
       - public
+
   only:
     - main
