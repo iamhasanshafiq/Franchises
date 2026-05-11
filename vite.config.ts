@@ -9,7 +9,7 @@ const gitlabPagesBase = process.env.CI_PAGES_URL
   : "/";
 
 export default defineConfig(({ mode }) => ({
-  base: gitlabPagesBase,
+  // base: gitlabPagesBase,
 
   server: {
     host: "::",
@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), mode === "development" && componentTagger()].filter(
     Boolean,
   ),
-
+  base: '/franchise-portal/',
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
