@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), mode === "development" && componentTagger()].filter(
     Boolean,
   ),
-  base: '/franchise-portal/',
+  base: mode === "production" ? "/franchise-portal/" : "/",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

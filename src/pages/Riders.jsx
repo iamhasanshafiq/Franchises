@@ -104,6 +104,10 @@ const Riders = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 10;
+
   const fileInputRef = useRef(null);
 
   // =========================================
@@ -282,6 +286,22 @@ const Riders = () => {
 
   }, [riders, searchTerm]);
 
+  // =========================================
+  // PAGINATION
+  // =========================================
+
+  const totalPages = Math.ceil(filteredRiders.length / itemsPerPage);
+
+  const paginatedRiders = useMemo(() => {
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+
+    return filteredRiders.slice(
+      startIndex,
+      startIndex + itemsPerPage
+    );
+
+  }, [filteredRiders, currentPage]);
   // =========================================
   // TABLE
   // =========================================
@@ -816,13 +836,120 @@ hover:scale-[1.02]
 
                 <DataTable
                   columns={columns}
-                  data={filteredRiders}
+                  data={paginatedRiders}
                 />
 
               )}
 
             </div>
+ {/* FOOTER */}
 
+<div className="
+flex
+flex-col
+md:flex-row
+items-center
+justify-between
+gap-4
+p-5
+border-t
+border-white/5
+bg-slate-50/50
+dark:bg-slate-900/20
+">
+
+  {/* LEFT */}
+
+  <div className="
+text-[10px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+dark:text-slate-400
+">
+
+    Showing
+    {" "}
+    {(currentPage - 1) * itemsPerPage + 1}
+
+    {" - "}
+
+    {Math.min(
+      currentPage * itemsPerPage,
+      filteredRiders.length
+    )}
+
+    {" "}
+    of
+    {" "}
+    {filteredRiders.length}
+
+  </div>
+
+  {/* RIGHT */}
+
+  <div className="flex items-center gap-3">
+
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={currentPage === 1}
+      onClick={() =>
+        setCurrentPage(prev => prev - 1)
+      }
+      className="
+rounded-xl
+border-slate-200
+dark:border-slate-700
+"
+    >
+
+      Prev
+
+    </Button>
+
+    <div className="
+px-4
+py-2
+rounded-xl
+bg-indigo-600
+text-white
+text-sm
+font-black
+shadow-lg
+shadow-indigo-500/20
+">
+
+      {currentPage}
+      {" / "}
+      {totalPages}
+
+    </div>
+
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={
+        currentPage === totalPages
+      }
+      onClick={() =>
+        setCurrentPage(prev => prev + 1)
+      }
+      className="
+rounded-xl
+border-slate-200
+dark:border-slate-700
+"
+    >
+
+      Next
+
+    </Button>
+
+  </div>
+
+</div>
           </motion.div>
 
         </motion.div>
