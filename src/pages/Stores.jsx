@@ -22,7 +22,6 @@ import {
   Search,
   MapPin,
   Eye,
-  Map as MapIcon,
   Loader2,
   Hash,
   Navigation,
@@ -34,6 +33,9 @@ import {
   ShieldCheck,
   ArrowRight,
   BarChart3,
+  Sparkles,
+  Radar,
+  Building2,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -436,24 +438,27 @@ const Stores = () => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const indexOfLastItem =
-    currentPage * itemsPerPage;
+  const totalPages = Math.ceil(
+    filteredStores.length /
+      itemsPerPage
+  );
 
-  const indexOfFirstItem =
-    indexOfLastItem - itemsPerPage;
+  const currentItems = useMemo(() => {
 
-  const currentItems =
-    filteredStores.slice(
-      indexOfFirstItem,
-      indexOfLastItem
+    const start =
+      (currentPage - 1) *
+      itemsPerPage;
+
+    return filteredStores.slice(
+      start,
+      start + itemsPerPage
     );
 
-  const totalPages = itemsPerPage
-    ? Math.ceil(
-        filteredStores.length /
-          itemsPerPage
-      )
-    : 1;
+  }, [
+    filteredStores,
+    currentPage,
+    itemsPerPage,
+  ]);
 
   // =========================================
   // ANALYTICS
@@ -466,7 +471,8 @@ const Stores = () => {
 
     const active =
       stores?.filter(
-        s => s.status === "ACTIVE"
+        s =>
+          s.status === "ACTIVE"
       ).length || 0;
 
     const inactive =
@@ -537,51 +543,58 @@ const Stores = () => {
     () => [
       {
         key: "name",
-        label: "Hub Identity",
+        label: "Store Hub",
 
         render: (v, r) => (
 
           <div className="flex items-center gap-4">
 
-            <div className="
-w-11
-h-11
+            <div
+              className="
+w-12
+h-12
 rounded-2xl
-bg-gradient-to-br
-from-orange-500/20
-to-orange-600/10
+bg-orange-500/10
+text-orange-500
 flex
 items-center
 justify-center
-text-orange-500
 shadow-lg
 shadow-orange-500/10
-">
+group-hover:scale-110
+transition-all
+duration-500
+"
+            >
 
-              <Store size={18} />
+              <Store size={20} />
 
             </div>
 
             <div>
 
-              <p className="
+              <p
+                className="
 font-black
-text-slate-700
+text-sm
+text-slate-800
 dark:text-white
 tracking-tight
-">
+"
+              >
                 {v}
               </p>
 
-              <p className="
-text-[10px]
-uppercase
-tracking-[0.25em]
+              <p
+                className="
+text-xs
 text-slate-500
 dark:text-slate-400
-font-bold
-">
-                Hub Infrastructure
+mt-1
+"
+              >
+                {r.localStoreid ||
+                  "No UUID"}
               </p>
 
             </div>
@@ -597,17 +610,16 @@ font-bold
 
         render: (v) => (
 
-          <div className="
-max-w-[250px]
-">
+          <div className="max-w-[280px]">
 
-            <p className="
+            <p
+              className="
 text-sm
-font-medium
 text-slate-600
 dark:text-slate-300
 truncate
-">
+"
+            >
               {v}
             </p>
 
@@ -627,15 +639,11 @@ truncate
 
       {
         key: "actions",
-        label: "Controls",
+        label: "",
 
         render: (_, r) => (
 
-          <div className="
-flex
-items-center
-gap-2
-">
+          <div className="flex items-center gap-2">
 
             <Button
               size="sm"
@@ -645,8 +653,10 @@ gap-2
               }
               className="
 rounded-xl
-hover:bg-indigo-500/10
-hover:text-indigo-500
+hover:bg-orange-500/10
+hover:text-orange-500
+transition-all
+duration-300
 "
             >
 
@@ -671,12 +681,16 @@ hover:text-indigo-500
                 }
                 className="
 rounded-xl
-hover:bg-blue-500/10
-hover:text-blue-500
+hover:bg-indigo-500/10
+hover:text-indigo-500
+transition-all
+duration-300
 "
               >
 
-                <SquarePen size={16} />
+                <SquarePen
+                  size={16}
+                />
 
               </Button>
 
@@ -694,6 +708,8 @@ hover:text-blue-500
 rounded-xl
 hover:bg-red-500/10
 hover:text-red-500
+transition-all
+duration-300
 "
               >
 
@@ -712,11 +728,11 @@ hover:text-red-500
   );
 
   // =========================================
-  // GLASS CARD
+  // GLASS
   // =========================================
 
   const glassCard = `
-bg-white
+bg-white/90
 dark:bg-slate-900/70
 backdrop-blur-2xl
 border
@@ -726,7 +742,6 @@ shadow-[0_10px_40px_rgba(0,0,0,0.06)]
 dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]
 transition-all
 duration-500
-hover:shadow-orange-500/10
 `;
 
   // =========================================
@@ -737,15 +752,18 @@ hover:shadow-orange-500/10
 
     return (
 
-      <div className="
+      <div
+        className="
 min-h-screen
 flex
 items-center
 justify-center
 bg-[#03140F]
-">
+"
+      >
 
-        <div className="
+        <div
+          className="
 w-14
 h-14
 rounded-full
@@ -753,7 +771,8 @@ border-4
 border-orange-500/20
 border-t-orange-500
 animate-spin
-" />
+"
+        />
 
       </div>
 
@@ -765,7 +784,8 @@ animate-spin
 
     <DashboardLayout>
 
-      <div className="
+      <div
+        className="
 min-h-screen
 bg-gradient-to-br
 from-slate-50
@@ -776,104 +796,65 @@ dark:via-[#041B15]
 dark:to-[#020617]
 transition-colors
 duration-500
-">
+"
+      >
 
         <Header
-          title="Hub Control Center"
-          subtitle="Provision and manage intelligent franchise store infrastructure"
+          title="Franchise Infrastructure"
+          subtitle="Manage intelligent store ecosystem"
         />
 
         <motion.div
 
           initial={{
             opacity: 0,
-            scale: 1.02,
-            filter: "blur(12px)",
+            y: 20,
           }}
 
           animate={{
             opacity: 1,
-            scale: 1,
-            filter: "blur(0px)",
+            y: 0,
           }}
 
           transition={{
-            duration: 1,
-            ease: [0.22, 1, 0.36, 1],
+            duration: 0.8,
           }}
 
           className="
 relative
 overflow-hidden
-p-8
+p-6
+lg:p-8
+space-y-8
 max-w-[1600px]
 mx-auto
-space-y-8
 "
         >
 
           {/* BACKGROUND */}
 
-          <div className="
-absolute
-inset-0
--z-10
-overflow-hidden
-">
+          <div className="absolute inset-0 -z-10 overflow-hidden">
 
-            <div className="
-absolute
-inset-0
-bg-[radial-gradient(#0f172a12_1px,transparent_1px)]
-dark:bg-[radial-gradient(#ffffff08_1px,transparent_1px)]
-[background-size:24px_24px]
-opacity-40
-" />
-
-            <motion.div
-
-              animate={{
-                y: [0, -30, 0],
-                x: [0, 20, 0],
-              }}
-
-              transition={{
-                duration: 10,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-
+            <div
               className="
 absolute
 top-[-10%]
 left-[-10%]
-w-[500px]
-h-[500px]
+w-[420px]
+h-[420px]
 bg-orange-500/10
 rounded-full
 blur-[120px]
 "
             />
 
-            <motion.div
-
-              animate={{
-                y: [0, 40, 0],
-                x: [0, -20, 0],
-              }}
-
-              transition={{
-                duration: 14,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-
+            <div
               className="
 absolute
 bottom-[-10%]
 right-[-10%]
-w-[500px]
-h-[500px]
+w-[420px]
+h-[420px]
 bg-indigo-500/10
 rounded-full
 blur-[120px]
@@ -882,63 +863,61 @@ blur-[120px]
 
           </div>
 
-          {/* ANALYTICS */}
+          {/* STATS */}
 
-          <div className="
-grid
-grid-cols-1
-md:grid-cols-3
-gap-6
-">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{
+                y: -4,
+              }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
-              <div className="
-flex
-items-center
-justify-between
-">
+              <div className="flex items-center justify-between">
 
                 <div>
 
-                  <p className="
-text-xs
+                  <p
+                    className="
+text-[11px]
+font-black
 uppercase
 tracking-[0.25em]
 text-slate-500
-dark:text-slate-400
-font-black
-">
+mb-2
+"
+                  >
                     Total Hubs
                   </p>
 
-                  <h3 className="
+                  <h2
+                    className="
 text-3xl
 font-black
-mt-2
 text-slate-800
 dark:text-white
-">
+"
+                  >
                     {analytics.total}
-                  </h3>
+                  </h2>
 
                 </div>
 
-                <div className="
+                <div
+                  className="
 w-14
 h-14
 rounded-2xl
 bg-orange-500/10
+text-orange-500
 flex
 items-center
 justify-center
-text-orange-500
-">
+"
+                >
 
-                  <Globe size={24} />
+                  <Building2 size={24} />
 
                 </div>
 
@@ -947,53 +926,58 @@ text-orange-500
             </motion.div>
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{
+                y: -4,
+              }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
-              <div className="
-flex
-items-center
-justify-between
-">
+              <div className="flex items-center justify-between">
 
                 <div>
 
-                  <p className="
-text-xs
+                  <p
+                    className="
+text-[11px]
+font-black
 uppercase
 tracking-[0.25em]
 text-slate-500
-dark:text-slate-400
-font-black
-">
+mb-2
+"
+                  >
                     Active Stores
                   </p>
 
-                  <h3 className="
+                  <h2
+                    className="
 text-3xl
 font-black
-mt-2
 text-slate-800
 dark:text-white
-">
+"
+                  >
                     {analytics.active}
-                  </h3>
+                  </h2>
 
                 </div>
 
-                <div className="
+                <div
+                  className="
 w-14
 h-14
 rounded-2xl
 bg-emerald-500/10
+text-emerald-500
 flex
 items-center
 justify-center
-text-emerald-500
-">
+"
+                >
 
-                  <ShieldCheck size={24} />
+                  <ShieldCheck
+                    size={24}
+                  />
 
                 </div>
 
@@ -1002,51 +986,45 @@ text-emerald-500
             </motion.div>
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{
+                y: -4,
+              }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
-              <div className="
-flex
-items-center
-justify-between
-">
+              <div className="flex items-center justify-between">
 
                 <div className="flex-1">
 
-                  <p className="
-text-xs
+                  <p
+                    className="
+text-[11px]
+font-black
 uppercase
 tracking-[0.25em]
 text-slate-500
-dark:text-slate-400
-font-black
 mb-3
-">
-                    Operational Efficiency
+"
+                  >
+                    Efficiency
                   </p>
 
-                  <div className="
-flex
-items-center
-justify-between
-mb-2
-">
+                  <div className="flex items-center justify-between mb-3">
 
-                    <span className="
+                    <h2
+                      className="
 text-3xl
 font-black
 text-slate-800
 dark:text-white
-">
-                      {analytics.efficiency}%
-                    </span>
-
-                    <Activity
-                      size={18}
-                      className="
-text-indigo-500
 "
+                    >
+                      {analytics.efficiency}%
+                    </h2>
+
+                    <Radar
+                      size={20}
+                      className="text-indigo-500"
                     />
 
                   </div>
@@ -1070,13 +1048,13 @@ dark:bg-slate-800
 
           </div>
 
-          {/* MAIN TABLE */}
+          {/* TABLE */}
 
           <motion.div
 
             initial={{
               opacity: 0,
-              y: 40,
+              y: 30,
             }}
 
             animate={{
@@ -1093,67 +1071,74 @@ dark:bg-slate-800
 
             {/* HEADER */}
 
-            <div className="
-p-8
+            <div
+              className="
+p-6
 border-b
-border-white/10
+border-slate-200
+dark:border-slate-800
 flex
 flex-col
 lg:flex-row
 justify-between
 lg:items-center
 gap-5
-bg-slate-50
-dark:bg-slate-900/10
+bg-white/60
+dark:bg-slate-900/40
 backdrop-blur-xl
-">
+"
+            >
 
-              <div className="
-flex
-items-center
-gap-4
-">
+              <div className="flex items-center gap-4">
 
-                <div className="
+                <div
+                  className="
 p-3
 rounded-2xl
 bg-gradient-to-br
-from-indigo-500
-to-indigo-700
+from-orange-500
+to-orange-600
 text-white
-shadow-xl
-shadow-indigo-500/20
-">
+shadow-lg
+shadow-orange-500/20
+"
+                >
 
-                  <BarChart3 size={20} />
+                  <Sparkles size={20} />
 
                 </div>
 
                 <div>
 
-                  <h3 className="
+                  <h3
+                    className="
 text-lg
 font-black
 tracking-tight
 text-slate-800
 dark:text-white
-">
-                    Store Registry
+"
+                  >
+                    Franchise Store Matrix
                   </h3>
 
-                  <p className="
-text-xs
-text-slate-600
+                  <p
+                    className="
+text-sm
+text-slate-500
 dark:text-slate-400
-">
-                    Intelligent franchise network infrastructure
+mt-1
+"
+                  >
+                    Real-time infrastructure overview
                   </p>
 
                 </div>
 
               </div>
 
-              <div className="
+              <div
+                className="
 flex
 flex-col
 md:flex-row
@@ -1161,23 +1146,22 @@ items-center
 gap-3
 w-full
 lg:w-auto
-">
+"
+              >
 
-                <div className="
-relative
-w-full
-md:w-80
-">
+                <div className="relative w-full md:w-80">
 
-                  <Search className="
+                  <Search
+                    className="
 absolute
 left-3
 top-1/2
--transform
 -translate-y-1/2
+w-4
+h-4
 text-slate-400
-size-4
-" />
+"
+                  />
 
                   <Input
                     value={searchTerm}
@@ -1186,10 +1170,10 @@ size-4
                         e.target.value
                       )
                     }
-                    placeholder="Search store network..."
+                    placeholder="Search stores..."
                     className="
 pl-10
-h-12
+h-11
 rounded-2xl
 border-slate-200
 dark:border-slate-700
@@ -1203,15 +1187,18 @@ dark:bg-slate-900/50
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
+
                     setItemsPerPage(
                       Number(
                         e.target.value
                       )
                     );
+
                     setCurrentPage(1);
+
                   }}
                   className="
-h-12
+h-11
 px-4
 rounded-2xl
 border
@@ -1227,12 +1214,14 @@ outline-none
 
                   {[5, 10, 20, 50].map(
                     (val) => (
+
                       <option
                         key={val}
                         value={val}
                       >
                         {val}
                       </option>
+
                     )
                   )}
 
@@ -1241,39 +1230,28 @@ outline-none
                 {isFranchiseAdmin() && (
 
                   <Button
-
                     onClick={() =>
                       setModalOpen(true)
                     }
-
                     className="
+h-11
 rounded-2xl
-h-12
-px-6
+px-5
+font-bold
+gap-2
 bg-orange-500
 hover:bg-orange-600
-text-white
-font-black
-shadow-xl
+shadow-lg
 shadow-orange-500/20
 transition-all
 duration-500
-hover:scale-105
+hover:scale-[1.02]
 "
-
                   >
 
-                    <Plus
-                      size={18}
-                      className="mr-2"
-                    />
+                    <Plus size={18} />
 
-                    Register Hub
-
-                    <ArrowRight
-                      size={16}
-                      className="ml-2"
-                    />
+                    Initialize Hub
 
                   </Button>
 
@@ -1285,24 +1263,11 @@ hover:scale-105
 
             {/* TABLE */}
 
-            <div className="
-overflow-hidden
-">
+            <div className="p-4">
 
               {loading ? (
 
                 <TableSkeleton rows={6} />
-
-              ) : filteredStores.length ===
-                0 ? (
-
-                <div className="
-p-20
-text-center
-text-slate-400
-">
-                  No stores found.
-                </div>
 
               ) : (
 
@@ -1315,12 +1280,10 @@ text-slate-400
 
             </div>
 
-            {/* PAGINATION */}
+            {/* FOOTER */}
 
-            {!loading &&
-              totalPages > 1 && (
-
-              <div className="
+            <div
+              className="
 flex
 flex-col
 md:flex-row
@@ -1332,58 +1295,68 @@ border-t
 border-white/5
 bg-slate-50/50
 dark:bg-slate-900/20
-">
+"
+            >
 
-                <div className="
+              <div
+                className="
 text-[10px]
 font-black
 uppercase
 tracking-[0.25em]
 text-slate-500
 dark:text-slate-400
-">
-
-                  Showing
-                  {" "}
-                  {indexOfFirstItem + 1}
-                  {" - "}
-                  {Math.min(
-                    indexOfLastItem,
-                    filteredStores.length
-                  )}
-                  {" "}
-                  of
-                  {" "}
-                  {filteredStores.length}
-
-                </div>
-
-                <div className="
-flex
-items-center
-gap-3
-">
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      currentPage === 1
-                    }
-                    onClick={() =>
-                      setCurrentPage(
-                        prev =>
-                          prev - 1
-                      )
-                    }
-                    className="
-rounded-xl
 "
-                  >
-                    Prev
-                  </Button>
+              >
 
-                  <div className="
+                Showing
+                {" "}
+                {(currentPage - 1) *
+                  itemsPerPage +
+                  1}
+
+                {" - "}
+
+                {Math.min(
+                  currentPage *
+                    itemsPerPage,
+                  filteredStores.length
+                )}
+
+                {" "}
+                of
+                {" "}
+                {filteredStores.length}
+
+              </div>
+
+              <div className="flex items-center gap-3">
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    currentPage === 1
+                  }
+                  onClick={() =>
+                    setCurrentPage(
+                      prev =>
+                        prev - 1
+                    )
+                  }
+                  className="
+rounded-xl
+border-slate-200
+dark:border-slate-700
+"
+                >
+
+                  Prev
+
+                </Button>
+
+                <div
+                  className="
 px-4
 py-2
 rounded-xl
@@ -1393,39 +1366,42 @@ text-sm
 font-black
 shadow-lg
 shadow-orange-500/20
-">
-
-                    {currentPage}
-                    {" / "}
-                    {totalPages}
-
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      currentPage ===
-                      totalPages
-                    }
-                    onClick={() =>
-                      setCurrentPage(
-                        prev =>
-                          prev + 1
-                      )
-                    }
-                    className="
-rounded-xl
 "
-                  >
-                    Next
-                  </Button>
+                >
+
+                  {currentPage}
+                  {" / "}
+                  {totalPages}
 
                 </div>
 
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    currentPage ===
+                    totalPages
+                  }
+                  onClick={() =>
+                    setCurrentPage(
+                      prev =>
+                        prev + 1
+                    )
+                  }
+                  className="
+rounded-xl
+border-slate-200
+dark:border-slate-700
+"
+                >
+
+                  Next
+
+                </Button>
+
               </div>
 
-            )}
+            </div>
 
           </motion.div>
 
@@ -1482,33 +1458,35 @@ grid
 grid-cols-1
 lg:grid-cols-12
 gap-8
-p-1
 "
           >
 
             {/* LEFT */}
 
-            <div className="
+            <div
+              className="
 lg:col-span-5
 space-y-5
-">
+"
+            >
 
-              <div className="
-bg-slate-50
-dark:bg-slate-900/40
-p-5
+              <div
+                className="
 rounded-[2rem]
 border
-border-slate-100
+border-slate-200
 dark:border-slate-800
+bg-slate-50/80
+dark:bg-slate-900/40
+p-5
 space-y-5
-">
+"
+              >
 
-                <div className="
-space-y-2
-">
+                <div className="space-y-2">
 
-                  <Label className="
+                  <Label
+                    className="
 text-[10px]
 font-black
 uppercase
@@ -1517,22 +1495,21 @@ text-slate-500
 flex
 items-center
 gap-2
-">
+"
+                  >
 
                     <Hash size={14} />
 
-                    Store Identifier
+                    Store UUID
 
                   </Label>
 
                   <Input
                     placeholder="UUID..."
                     className="
-h-12
+h-11
 rounded-2xl
 font-mono
-border-slate-200
-dark:border-slate-700
 "
                     value={
                       formData.localStoreid
@@ -1548,11 +1525,10 @@ dark:border-slate-700
 
                 </div>
 
-                <div className="
-space-y-2
-">
+                <div className="space-y-2">
 
-                  <Label className="
+                  <Label
+                    className="
 text-[10px]
 font-black
 uppercase
@@ -1561,7 +1537,8 @@ text-slate-500
 flex
 items-center
 gap-2
-">
+"
+                  >
 
                     <Store size={14} />
 
@@ -1570,16 +1547,12 @@ gap-2
                   </Label>
 
                   <Input
-                    placeholder="Barqi DHA Store"
+                    placeholder="DHA Hub"
                     className="
-h-12
+h-11
 rounded-2xl
-border-slate-200
-dark:border-slate-700
 "
-                    value={
-                      formData.name
-                    }
+                    value={formData.name}
                     onChange={(e) =>
                       setFormData(prev => ({
                         ...prev,
@@ -1592,11 +1565,10 @@ dark:border-slate-700
 
                 </div>
 
-                <div className="
-space-y-2
-">
+                <div className="space-y-2">
 
-                  <Label className="
+                  <Label
+                    className="
 text-[10px]
 font-black
 uppercase
@@ -1605,7 +1577,8 @@ text-slate-500
 flex
 items-center
 gap-2
-">
+"
+                  >
 
                     <MapPin size={14} />
 
@@ -1614,20 +1587,6 @@ gap-2
                   </Label>
 
                   <textarea
-                    className="
-w-full
-min-h-[120px]
-p-4
-rounded-2xl
-border
-border-slate-200
-dark:border-slate-700
-bg-white
-dark:bg-slate-900
-outline-none
-focus:ring-2
-focus:ring-orange-500
-"
                     value={
                       formData.address
                     }
@@ -1639,83 +1598,95 @@ focus:ring-orange-500
                       }))
                     }
                     required
+                    className="
+w-full
+min-h-[120px]
+rounded-2xl
+border
+border-slate-200
+dark:border-slate-700
+bg-white
+dark:bg-slate-900
+p-4
+outline-none
+focus:ring-2
+focus:ring-orange-500/20
+"
                   />
 
                 </div>
 
               </div>
 
-              <div className="
-grid
-grid-cols-2
-gap-4
-">
+              <div className="grid grid-cols-2 gap-4">
 
-                <div className="
-p-4
+                <div
+                  className="
 rounded-2xl
 bg-slate-900
 text-white
-">
+p-4
+"
+                >
 
-                  <p className="
+                  <p
+                    className="
 text-[10px]
 uppercase
 tracking-[0.25em]
 text-orange-500
 font-black
 mb-2
-">
+"
+                  >
                     Latitude
                   </p>
 
-                  <p className="
-font-mono
-text-sm
-">
+                  <p className="font-mono text-sm">
+
                     {Number(
                       formData.latitude
                     ).toFixed(6)}
+
                   </p>
 
                 </div>
 
-                <div className="
-p-4
+                <div
+                  className="
 rounded-2xl
 bg-slate-900
 text-white
-">
+p-4
+"
+                >
 
-                  <p className="
+                  <p
+                    className="
 text-[10px]
 uppercase
 tracking-[0.25em]
 text-orange-500
 font-black
 mb-2
-">
+"
+                  >
                     Longitude
                   </p>
 
-                  <p className="
-font-mono
-text-sm
-">
+                  <p className="font-mono text-sm">
+
                     {Number(
                       formData.longitude
                     ).toFixed(6)}
+
                   </p>
 
                 </div>
 
               </div>
 
-              <div className="
-flex
-gap-4
-pt-2
-">
+              <div className="flex gap-4">
 
                 <Button
                   type="button"
@@ -1725,11 +1696,13 @@ pt-2
                   }
                   className="
 flex-1
-h-12
+h-11
 rounded-2xl
 "
                 >
+
                   Cancel
+
                 </Button>
 
                 <Button
@@ -1737,22 +1710,20 @@ rounded-2xl
                   disabled={formLoading}
                   className="
 flex-1
-h-12
+h-11
 rounded-2xl
 bg-orange-500
 hover:bg-orange-600
-text-white
-font-bold
-shadow-xl
+shadow-lg
 shadow-orange-500/20
 "
                 >
 
                   {formLoading ? (
 
-                    <Loader2 className="
-animate-spin
-" />
+                    <Loader2
+                      className="animate-spin"
+                    />
 
                   ) : (
 
@@ -1768,36 +1739,34 @@ animate-spin
 
             {/* RIGHT */}
 
-            <div className="
+            <div
+              className="
 lg:col-span-7
 space-y-4
-">
+"
+            >
 
-              <div className="
-flex
-items-center
-justify-between
-">
+              <div className="flex items-center justify-between">
 
-                <Label className="
-text-xs
-font-black
+                <Label
+                  className="
+text-[11px]
 uppercase
 tracking-[0.25em]
+font-black
 text-slate-500
 flex
 items-center
 gap-2
-">
+"
+                >
 
                   <Navigation
                     size={14}
-                    className="
-text-orange-500
-"
+                    className="text-orange-500"
                   />
 
-                  Geographical Positioning
+                  Geo Positioning
 
                 </Label>
 
@@ -1813,30 +1782,30 @@ text-orange-500
                     }
                   >
 
-                    <div className="
-relative
-w-64
-">
+                    <div className="relative w-64">
 
-                      <Search className="
+                      <Search
+                        className="
 absolute
 left-3
 top-1/2
--transform
 -translate-y-1/2
-size-3
+w-3
+h-3
 text-slate-400
-" />
+"
+                      />
 
                       <Input
                         placeholder="Search location..."
                         className="
-h-9
+h-10
 pl-8
-text-xs
-bg-slate-100
-border-none
 rounded-full
+bg-slate-100
+dark:bg-slate-900
+border-none
+text-xs
 "
                       />
 
@@ -1848,15 +1817,18 @@ rounded-full
 
               </div>
 
-              <div className="
-h-[450px]
+              <div
+                className="
+h-[460px]
 rounded-[2rem]
 overflow-hidden
 border-[10px]
 border-slate-50
+dark:border-slate-900
 shadow-2xl
 relative
-">
+"
+              >
 
                 {isLoaded ? (
 
@@ -1874,8 +1846,6 @@ relative
                       handleMapClick
                     }
                     options={{
-                      disableDefaultUI:
-                        false,
                       mapTypeControl:
                         false,
                       streetViewControl:
@@ -1895,54 +1865,64 @@ relative
 
                 ) : (
 
-                  <div className="
+                  <div
+                    className="
 h-full
-bg-slate-50
-animate-pulse
 flex
 items-center
 justify-center
-text-xs
-">
+bg-slate-100
+dark:bg-slate-900
+"
+                  >
+
                     Initializing Maps...
+
                   </div>
 
                 )}
 
-                <div className="
+                <div
+                  className="
 absolute
 bottom-4
 left-4
 right-4
 bg-white/90
-backdrop-blur-md
-p-4
+dark:bg-slate-900/80
+backdrop-blur-xl
 rounded-2xl
+p-4
 border
-border-white
-shadow-lg
-pointer-events-none
-">
+border-white/20
+"
+                >
 
-                  <p className="
+                  <p
+                    className="
 text-[10px]
 uppercase
 tracking-[0.25em]
 font-black
 text-slate-500
 mb-2
-">
+"
+                  >
                     Current Position
                   </p>
 
-                  <p className="
-text-xs
-font-medium
+                  <p
+                    className="
+text-sm
 truncate
-text-slate-800
-">
+text-slate-700
+dark:text-slate-300
+"
+                  >
+
                     {formData.address ||
                       "Click map to select location"}
+
                   </p>
 
                 </div>

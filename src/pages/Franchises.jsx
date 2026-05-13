@@ -13,10 +13,13 @@ import {
   Hash,
   Users,
   Activity,
-  ArrowRight,
   ShieldCheck,
-  BarChart3,
   Globe,
+  Search,
+  Loader2,
+  ArrowRight,
+  Sparkles,
+  Building2,
 } from 'lucide-react';
 
 import { motion } from 'framer-motion';
@@ -26,6 +29,7 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import TableSkeleton from '../components/common/TableSkeleton';
 
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -69,11 +73,11 @@ const Franchises = () => {
 
   const [terminateLoading, setTerminateLoading] = useState(false);
 
-  const [pageLoaded, setPageLoaded] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [pageSize, setPageSize] = useState(10);
+  const itemsPerPage = 10;
 
   const [formData, setFormData] = useState({
     cityId: '',
@@ -83,27 +87,14 @@ const Franchises = () => {
   });
 
   // =========================================
-  // INITIAL LOAD
+  // LOAD
   // =========================================
 
   useEffect(() => {
 
     fetchCities();
+
     fetchFranchises();
-
-  }, []);
-
-  // =========================================
-  // PAGE LOADER
-  // =========================================
-
-  useEffect(() => {
-
-    const timer = setTimeout(() => {
-      setPageLoaded(true);
-    }, 250);
-
-    return () => clearTimeout(timer);
 
   }, []);
 
@@ -145,24 +136,47 @@ const Franchises = () => {
   }, [franchises]);
 
   // =========================================
+  // SEARCH
+  // =========================================
+
+  const filteredFranchises = useMemo(() => {
+
+    if (!searchTerm) return franchises;
+
+    return franchises.filter((f) =>
+
+      f.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+
+      f.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+
+      f.city?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    );
+
+  }, [franchises, searchTerm]);
+
+  // =========================================
   // PAGINATION
   // =========================================
 
   const totalPages = Math.ceil(
-    (franchises?.length || 0) / pageSize
+    filteredFranchises.length / itemsPerPage
   );
 
   const paginatedFranchises = useMemo(() => {
 
-    const start =
-      (currentPage - 1) * pageSize;
+    const startIndex =
+      (currentPage - 1) * itemsPerPage;
 
-    return franchises.slice(
-      start,
-      start + pageSize
+    return filteredFranchises.slice(
+      startIndex,
+      startIndex + itemsPerPage
     );
 
-  }, [franchises, currentPage, pageSize]);
+  }, [
+    filteredFranchises,
+    currentPage
+  ]);
 
   // =========================================
   // ACTIONS
@@ -294,16 +308,17 @@ const Franchises = () => {
   };
 
   // =========================================
-  // TABLE COLUMNS
+  // TABLE
   // =========================================
 
-  const columns = [
+  const columns = useMemo(() => [
 
     {
       key: 'name',
-      label: 'Franchise Node',
 
-      render: (val) => (
+      label: 'Franchise',
+
+      render: (val, row) => (
 
         <div className="flex items-center gap-4">
 
@@ -311,30 +326,49 @@ const Franchises = () => {
 w-11
 h-11
 rounded-2xl
-bg-gradient-to-br
-from-blue-500/20
-to-blue-600/10
+bg-indigo-500/10
+text-indigo-500
 flex
 items-center
 justify-center
-text-blue-500
+font-black
 shadow-lg
-shadow-blue-500/10
+shadow-indigo-500/10
+transition-all
+duration-500
+group-hover:scale-110
 ">
 
-            <Store size={18} />
+            <Building2 size={18} />
 
           </div>
 
           <div>
 
-            <p className="font-black text-slate-700 dark:text-white tracking-tight">
-              {val}
-            </p>
+            <div className="
+font-black
+text-sm
+text-slate-800
+dark:text-white
+tracking-tight
+">
 
-            <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-bold">
-              Operational Franchise
-            </p>
+              {val}
+
+            </div>
+
+            <div className="
+text-xs
+text-slate-500
+dark:text-slate-400
+uppercase
+tracking-[0.2em]
+font-bold
+">
+
+              {row.code}
+
+            </div>
 
           </div>
 
@@ -344,45 +378,27 @@ shadow-blue-500/10
     },
 
     {
-      key: 'code',
-      label: 'Node ID',
-
-      render: (val) => (
-
-        <code className="
-px-3
-py-1.5
-rounded-xl
-bg-slate-100
-dark:bg-slate-800
-text-[11px]
-font-mono
-tracking-[0.2em]
-font-bold
-text-indigo-500
-border
-border-slate-200
-dark:border-slate-700
-">
-          {val}
-        </code>
-
-      )
-    },
-
-    {
       key: 'city',
+
       label: 'Region',
 
       render: (val) => (
 
-        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+        <div className="
+flex
+items-center
+gap-2
+text-slate-600
+dark:text-slate-300
+font-semibold
+">
 
-          <MapPin size={14} />
+          <MapPin
+            size={15}
+            className="text-emerald-500"
+          />
 
-          <span className="font-semibold">
-            {val?.name || 'Global'}
-          </span>
+          {val?.name || 'Global'}
 
         </div>
 
@@ -391,23 +407,26 @@ dark:border-slate-700
 
     {
       key: 'maxActiveRiders',
-      label: 'Rider Capacity',
+
+      label: 'Capacity',
 
       render: (val) => (
 
         <div className="
-flex
+inline-flex
 items-center
 gap-2
-font-bold
-text-slate-700
-dark:text-slate-200
+px-3
+py-1.5
+rounded-full
+bg-orange-500/10
+text-orange-500
+font-black
+text-xs
+tracking-wide
 ">
 
-          <Users
-            size={15}
-            className="text-orange-500"
-          />
+          <Users size={14} />
 
           {val}
 
@@ -418,14 +437,22 @@ dark:text-slate-200
 
     {
       key: 'createdAt',
-      label: 'Deployment Date',
+
+      label: 'Created',
 
       render: (val) => (
 
-        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <span className="
+text-sm
+font-semibold
+text-slate-600
+dark:text-slate-300
+">
+
           {val
             ? new Date(val).toLocaleDateString()
             : '-'}
+
         </span>
 
       )
@@ -433,28 +460,24 @@ dark:text-slate-200
 
     {
       key: 'actions',
-      label: 'Controls',
+
+      label: '',
 
       render: (_, row) => (
 
         <div className="flex items-center gap-2">
 
           <Button
-
             size="sm"
-
             variant="ghost"
-
             onClick={() => handleEdit(row)}
-
             className="
 rounded-xl
-hover:bg-blue-500/10
-hover:text-blue-500
+hover:bg-indigo-500/10
+hover:text-indigo-500
 transition-all
 duration-300
 "
-
           >
 
             <Edit size={16} />
@@ -462,13 +485,9 @@ duration-300
           </Button>
 
           <Button
-
             size="sm"
-
             variant="ghost"
-
             onClick={() => handleTerminate(row)}
-
             className="
 rounded-xl
 hover:bg-red-500/10
@@ -476,7 +495,6 @@ hover:text-red-500
 transition-all
 duration-300
 "
-
           >
 
             <Trash2 size={16} />
@@ -487,14 +505,15 @@ duration-300
 
       )
     }
-  ];
+
+  ], []);
 
   // =========================================
   // GLASS STYLE
   // =========================================
 
   const glassCard = `
-bg-white
+bg-white/90
 dark:bg-slate-900/70
 backdrop-blur-2xl
 border
@@ -504,39 +523,7 @@ shadow-[0_10px_40px_rgba(0,0,0,0.06)]
 dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]
 transition-all
 duration-500
-hover:shadow-blue-500/10
 `;
-
-  // =========================================
-  // LOADER
-  // =========================================
-
-  if (!pageLoaded) {
-
-    return (
-
-      <div className="
-min-h-screen
-flex
-items-center
-justify-center
-bg-[#03140F]
-">
-
-        <div className="
-w-14
-h-14
-rounded-full
-border-4
-border-blue-500/20
-border-t-blue-500
-animate-spin
-" />
-
-      </div>
-
-    );
-  }
 
   return (
 
@@ -556,45 +543,71 @@ duration-500
 ">
 
         <Header
-          title="Franchise Intelligence"
-          subtitle="Monitor and scale operational capacity across regional networks"
+          title="Franchise Network"
+          subtitle="Manage operational franchise infrastructure"
         />
 
         <motion.div
 
           initial={{
             opacity: 0,
-            scale: 1.02,
-            filter: 'blur(12px)',
+            y: 20
           }}
 
           animate={{
             opacity: 1,
-            scale: 1,
-            filter: 'blur(0px)',
+            y: 0
           }}
 
           transition={{
-            duration: 1,
-            ease: [0.22, 1, 0.36, 1],
+            duration: 0.7
           }}
 
           className="
-relative
-overflow-hidden
-p-8
+p-6
+lg:p-8
+space-y-8
 max-w-[1600px]
 mx-auto
-space-y-8
+relative
+overflow-hidden
 "
         >
 
-          {/* TOP ANALYTICS */}
+          {/* BACKGROUND FX */}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="absolute inset-0 -z-10 overflow-hidden">
+
+            <div className="
+absolute
+top-[-10%]
+left-[-10%]
+w-[420px]
+h-[420px]
+bg-indigo-500/10
+rounded-full
+blur-[120px]
+" />
+
+            <div className="
+absolute
+bottom-[-10%]
+right-[-10%]
+w-[420px]
+h-[420px]
+bg-emerald-500/10
+rounded-full
+blur-[120px]
+" />
+
+          </div>
+
+          {/* STATS */}
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -602,13 +615,25 @@ space-y-8
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
                     Total Nodes
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
                     {analytics.total}
-                  </h3>
+                  </h2>
 
                 </div>
 
@@ -616,15 +641,13 @@ space-y-8
 w-14
 h-14
 rounded-2xl
-bg-blue-500/10
+bg-indigo-500/10
+text-indigo-500
 flex
 items-center
 justify-center
-text-blue-500
 ">
-
                   <Globe size={24} />
-
                 </div>
 
               </div>
@@ -632,7 +655,7 @@ text-blue-500
             </motion.div>
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -640,13 +663,25 @@ text-blue-500
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
                     Rider Capacity
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
                     {analytics.totalRiders}
-                  </h3>
+                  </h2>
 
                 </div>
 
@@ -655,14 +690,12 @@ w-14
 h-14
 rounded-2xl
 bg-orange-500/10
+text-orange-500
 flex
 items-center
 justify-center
-text-orange-500
 ">
-
                   <Users size={24} />
-
                 </div>
 
               </div>
@@ -670,37 +703,105 @@ text-orange-500
             </motion.div>
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
               <div className="flex items-center justify-between">
 
-                <div className="flex-1">
+                <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black mb-3">
-                    Network Efficiency
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+                    Avg Capacity
                   </p>
 
-                  <div className="flex items-center justify-between mb-2">
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+                    {analytics.avgCapacity}
+                  </h2>
 
-                    <span className="text-3xl font-black text-slate-800 dark:text-white">
+                </div>
+
+                <div className="
+w-14
+h-14
+rounded-2xl
+bg-emerald-500/10
+text-emerald-500
+flex
+items-center
+justify-center
+">
+                  <ShieldCheck size={24} />
+                </div>
+
+              </div>
+
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -3 }}
+              className={`${glassCard} rounded-[2rem] p-6`}
+            >
+
+              <div className="space-y-4">
+
+                <div className="flex items-center justify-between">
+
+                  <div>
+
+                    <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+                      Efficiency
+                    </p>
+
+                    <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
                       {analytics.efficiency}%
-                    </span>
-
-                    <Activity
-                      size={18}
-                      className="text-indigo-500"
-                    />
+                    </h2>
 
                   </div>
 
-                  <Progress
-                    value={analytics.efficiency}
-                    className="h-2 bg-slate-200 dark:bg-slate-800"
-                  />
+                  <div className="
+w-14
+h-14
+rounded-2xl
+bg-cyan-500/10
+text-cyan-500
+flex
+items-center
+justify-center
+">
+                    <Activity size={24} />
+                  </div>
 
                 </div>
+
+                <Progress
+                  value={analytics.efficiency}
+                  className="h-2"
+                />
 
               </div>
 
@@ -711,104 +812,156 @@ text-orange-500
           {/* TABLE */}
 
           <motion.div
+
             initial={{
               opacity: 0,
-              y: 40,
+              y: 30
             }}
+
             animate={{
               opacity: 1,
-              y: 0,
+              y: 0
             }}
+
             transition={{
-              duration: 0.8,
+              duration: 0.8
             }}
-            whileHover={{
-              y: -2,
-            }}
+
             className={`${glassCard} rounded-[2.5rem] overflow-hidden`}
           >
 
-            {/* HEADER */}
+            {/* TOP BAR */}
 
             <div className="
-p-8
+p-6
 border-b
-border-white/10
+border-slate-200
+dark:border-slate-800
 flex
+flex-col
+lg:flex-row
+lg:items-center
 justify-between
-items-center
-bg-slate-50
-dark:bg-slate-900/10
+gap-4
+bg-white/60
+dark:bg-slate-900/40
 backdrop-blur-xl
 ">
 
-              <div className="flex items-center gap-4">
+              <div>
 
-                <div className="
-p-3
-rounded-2xl
-bg-gradient-to-br
-from-blue-500
-to-blue-700
-text-white
-shadow-xl
-shadow-blue-500/20
+                <h3 className="
+text-lg
+font-black
+text-slate-800
+dark:text-white
+tracking-tight
 ">
+                  Franchise Command Center
+                </h3>
 
-                  <BarChart3 size={20} />
-
-                </div>
-
-                <div>
-
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-white">
-                    Franchise Directory
-                  </h3>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Distributed operational network
-                  </p>
-
-                </div>
+                <p className="
+text-sm
+text-slate-500
+dark:text-slate-400
+mt-1
+">
+                  Distributed operational intelligence
+                </p>
 
               </div>
 
-              <Button
-                onClick={handleOpenModal}
-                disabled={loading}
-                className="
+              <div className="
+flex
+items-center
+gap-3
+">
+
+                <div className="relative w-72">
+
+                  <Search
+                    className="
+absolute
+left-3
+top-1/2
+-translate-y-1/2
+w-4
+h-4
+text-slate-400
+"
+                  />
+
+                  <Input
+                    className="
+pl-10
+h-11
 rounded-2xl
-h-12
-px-6
-bg-blue-600
-hover:bg-blue-700
-text-white
-font-black
-shadow-xl
-shadow-blue-500/20
+border-slate-200
+dark:border-slate-700
+bg-white/70
+dark:bg-slate-900/50
+backdrop-blur-xl
+transition-all
+duration-300
+focus-visible:ring-2
+focus-visible:ring-indigo-500/20
+"
+                    placeholder="Search franchises..."
+                    value={searchTerm}
+                    onChange={(e) =>
+                      setSearchTerm(e.target.value)
+                    }
+                  />
+
+                </div>
+
+                <Button
+                  onClick={handleOpenModal}
+                  className="
+h-11
+rounded-2xl
+px-5
+font-bold
+gap-2
+bg-indigo-600
+hover:bg-indigo-700
+shadow-lg
+shadow-indigo-500/20
 transition-all
 duration-500
-hover:scale-105
-active:scale-95
+hover:scale-[1.02]
 "
-              >
+                >
 
-                <Plus size={18} className="mr-2" />
+                  <Plus size={18} />
 
-                Add Franchise
+                  Initialize Node
 
-                <ArrowRight size={16} className="ml-2" />
+                </Button>
 
-              </Button>
+              </div>
 
             </div>
 
-            <DataTable
-              columns={columns}
-              data={paginatedFranchises}
-              loading={loading}
-              emptyMessage="No franchise nodes found in system"
-            />
+            {/* TABLE */}
+
+            <div className="p-4">
+
+              {loading ? (
+
+                <TableSkeleton rows={6} />
+
+              ) : (
+
+                <DataTable
+                  columns={columns}
+                  data={paginatedFranchises}
+                  emptyMessage="No franchises found"
+                />
+
+              )}
+
+            </div>
 
             {/* FOOTER */}
 
@@ -837,19 +990,19 @@ dark:text-slate-400
 
                 Showing
                 {" "}
-                {(currentPage - 1) * pageSize + 1}
+                {(currentPage - 1) * itemsPerPage + 1}
 
                 {" - "}
 
                 {Math.min(
-                  currentPage * pageSize,
-                  franchises?.length || 0
+                  currentPage * itemsPerPage,
+                  filteredFranchises.length
                 )}
 
                 {" "}
                 of
                 {" "}
-                {franchises?.length || 0}
+                {filteredFranchises.length}
 
               </div>
 
@@ -868,31 +1021,36 @@ border-slate-200
 dark:border-slate-700
 "
                 >
+
                   Prev
+
                 </Button>
 
                 <div className="
 px-4
 py-2
 rounded-xl
-bg-blue-600
+bg-indigo-600
 text-white
 text-sm
 font-black
 shadow-lg
-shadow-blue-500/20
+shadow-indigo-500/20
 ">
 
                   {currentPage}
                   {" / "}
-                  {totalPages}
+                  {totalPages || 1}
 
                 </div>
 
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={currentPage === totalPages}
+                  disabled={
+                    currentPage === totalPages ||
+                    totalPages === 0
+                  }
                   onClick={() =>
                     setCurrentPage(prev => prev + 1)
                   }
@@ -902,7 +1060,9 @@ border-slate-200
 dark:border-slate-700
 "
                 >
+
                   Next
+
                 </Button>
 
               </div>
@@ -922,113 +1082,67 @@ dark:border-slate-700
         onClose={() => setModalOpen(false)}
         title={
           selectedFranchise
-            ? 'Reconfigure Franchise'
-            : 'Provision New Franchise'
+            ? 'Update Franchise'
+            : 'Create New Franchise'
         }
+        size="lg"
       >
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-6 py-4"
+          className="space-y-5"
         >
 
-          {/* REGION */}
-
-          <div className="space-y-2">
-
-            <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
-flex
-items-center
-gap-2
-">
-
-              <MapPin size={14} />
-
-              Assigned Region
-
-            </Label>
-
-            <Select
-              value={formData.cityId}
-              onValueChange={(value) =>
-                setFormData({
-                  ...formData,
-                  cityId: value
-                })
-              }
-            >
-
-              <SelectTrigger className="
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-bg-white
-dark:bg-slate-900
-">
-
-                <SelectValue placeholder="Select target city" />
-
-              </SelectTrigger>
-
-              <SelectContent>
-
-                {cities.map((city) => (
-
-                  <SelectItem
-                    key={city.id}
-                    value={city.id}
-                  >
-
-                    {city.name}
-
-                  </SelectItem>
-
-                ))}
-
-              </SelectContent>
-
-            </Select>
-
-          </div>
-
-          {/* NAME + CODE */}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-2 gap-4">
 
             <div className="space-y-2">
 
-              <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
-flex
-items-center
-gap-2
-">
+              <Label>City</Label>
 
-                <Store size={14} />
+              <Select
+                value={formData.cityId}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    cityId: value
+                  })
+                }
+              >
 
-                Franchise Name
+                <SelectTrigger className="rounded-2xl h-11">
 
-              </Label>
+                  <SelectValue placeholder="Select City" />
+
+                </SelectTrigger>
+
+                <SelectContent>
+
+                  {cities.map((city) => (
+
+                    <SelectItem
+                      key={city.id}
+                      value={city.id}
+                    >
+
+                      {city.name}
+
+                    </SelectItem>
+
+                  ))}
+
+                </SelectContent>
+
+              </Select>
+
+            </div>
+
+            <div className="space-y-2">
+
+              <Label>Franchise Name</Label>
 
               <Input
-                className="
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-blue-500
-"
-                placeholder="e.g. Barqi Lahore"
+                className="rounded-2xl h-11"
+                placeholder="Enter franchise name"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({
@@ -1041,36 +1155,22 @@ focus-visible:ring-blue-500
 
             </div>
 
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+
             <div className="space-y-2">
 
-              <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
-flex
-items-center
-gap-2
-">
-
-                <Hash size={14} />
-
-                Node Identification
-
-              </Label>
+              <Label>Node Code</Label>
 
               <Input
                 className="
-h-12
 rounded-2xl
+h-11
 font-mono
 tracking-[0.2em]
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-indigo-500
 "
-                placeholder="e.g. BARQILHR"
+                placeholder="e.g. LHR01"
                 value={formData.code}
                 onChange={(e) =>
                   setFormData({
@@ -1083,60 +1183,37 @@ focus-visible:ring-indigo-500
 
             </div>
 
-          </div>
+            <div className="space-y-2">
 
-          {/* RIDERS */}
+              <Label>Rider Capacity</Label>
 
-          <div className="space-y-2">
+              <Input
+                type="number"
+                className="rounded-2xl h-11"
+                placeholder="e.g. 50"
+                value={formData.maxActiveRiders}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maxActiveRiders: e.target.value
+                  })
+                }
+                required
+              />
 
-            <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
-flex
-items-center
-gap-2
-">
-
-              <Users size={14} />
-
-              Rider Operational Capacity
-
-            </Label>
-
-            <Input
-              type="number"
-              className="
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
-"
-              placeholder="e.g. 50"
-              value={formData.maxActiveRiders}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  maxActiveRiders: e.target.value
-                })
-              }
-              required
-            />
+            </div>
 
           </div>
 
-          {/* INFO CARD */}
+          {/* INFO */}
 
           <div className="
 rounded-3xl
 border
-border-blue-500/10
+border-indigo-500/10
 bg-gradient-to-br
-from-blue-500/5
-to-indigo-500/5
+from-indigo-500/5
+to-cyan-500/5
 p-5
 flex
 items-start
@@ -1147,26 +1224,37 @@ gap-4
 w-11
 h-11
 rounded-2xl
-bg-blue-500/10
+bg-indigo-500/10
 flex
 items-center
 justify-center
-text-blue-500
+text-indigo-500
 ">
 
-              <ShieldCheck size={18} />
+              <Sparkles size={18} />
 
             </div>
 
             <div>
 
-              <h4 className="font-black text-slate-800 dark:text-white text-sm">
-                Operational Intelligence
+              <h4 className="
+font-black
+text-slate-800
+dark:text-white
+text-sm
+">
+                Network Intelligence
               </h4>
 
-              <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 mt-1">
-                Franchise nodes inherit regional deployment rules and rider
-                operational thresholds from the selected city infrastructure.
+              <p className="
+text-xs
+leading-relaxed
+text-slate-500
+dark:text-slate-400
+mt-1
+">
+                Franchise nodes inherit operational deployment settings
+                and regional scaling infrastructure automatically.
               </p>
 
             </div>
@@ -1175,26 +1263,21 @@ text-blue-500
 
           {/* ACTIONS */}
 
-          <div className="flex gap-4 pt-2">
+          <div className="
+flex
+justify-end
+gap-3
+pt-5
+border-t
+border-slate-200
+dark:border-slate-800
+">
 
             <Button
-
               type="button"
-
-              variant="outline"
-
+              variant="ghost"
               onClick={() => setModalOpen(false)}
-
-              className="
-flex-1
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-"
-
-              disabled={formLoading}
-
+              className="rounded-2xl"
             >
 
               Cancel
@@ -1202,34 +1285,29 @@ dark:border-slate-700
             </Button>
 
             <Button
-
-              type="submit"
-
               disabled={formLoading}
-
+              type="submit"
               className="
-flex-1
-h-12
+min-w-[150px]
 rounded-2xl
-bg-blue-600
-hover:bg-blue-700
-text-white
-font-bold
-shadow-xl
-shadow-blue-500/20
-transition-all
-duration-500
-hover:scale-[1.02]
-active:scale-[0.98]
+bg-indigo-600
+hover:bg-indigo-700
 "
-
             >
 
-              {formLoading
-                ? 'Processing Node...'
-                : selectedFranchise
-                  ? 'Commit Update'
-                  : 'Initialize Node'}
+              {formLoading ? (
+
+                <Loader2 className="animate-spin" />
+
+              ) : selectedFranchise ? (
+
+                'Update Franchise'
+
+              ) : (
+
+                'Create Franchise'
+
+              )}
 
             </Button>
 
@@ -1245,14 +1323,15 @@ active:scale-[0.98]
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={handleConfirmTerminate}
-        title="Decommission Franchise"
-        message={`Warning: You are about to terminate operational node ${selectedFranchise?.name}. This action cannot be undone.`}
+        title="Terminate Franchise"
+        message={`You are about to terminate ${selectedFranchise?.name}. This action cannot be undone.`}
         loading={terminateLoading}
       />
 
     </DashboardLayout>
 
   );
+
 };
 
 export default Franchises;

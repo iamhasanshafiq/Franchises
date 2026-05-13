@@ -1,7 +1,7 @@
 import React, {
   useState,
   useEffect,
-  useMemo,
+  useMemo
 } from 'react';
 
 import {
@@ -15,25 +15,30 @@ import {
   Loader2,
   Eye,
   Trash2,
-  ArrowRight,
-  Activity,
-  BarChart3,
   Users,
-  Globe,
+  Activity,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 import { motion } from 'framer-motion';
 
+import { toast } from 'sonner';
+
+// Components
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import StatusBadge from '../components/common/StatusBadge';
+import TableSkeleton from '../components/common/TableSkeleton';
 
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+
 import {
   Select,
   SelectContent,
@@ -42,15 +47,12 @@ import {
   SelectValue
 } from '../components/ui/select';
 
-import { Progress } from '../components/ui/progress';
-
-import { toast } from 'sonner';
-
-import TableSkeleton from '../components/common/TableSkeleton';
-
+// Hooks & APIs
 import { useStoreAdmins } from '../hooks/useStoreAdmins';
 import { storesApi } from '../api/stores.api';
 import { usersApi } from '../api/users.api';
+
+const ITEMS_PER_PAGE = 10;
 
 const StoreAdmins = () => {
 
@@ -85,11 +87,7 @@ const StoreAdmins = () => {
 
   const [adminsWithUser, setAdminsWithUser] = useState([]);
 
-  const [pageLoaded, setPageLoaded] = useState(false);
-
   const [currentPage, setCurrentPage] = useState(1);
-
-  const [pageSize, setPageSize] = useState(10);
 
   const [formData, setFormData] = useState({
     storeId: '',
@@ -100,17 +98,18 @@ const StoreAdmins = () => {
   });
 
   // =========================================
-  // INITIAL LOAD
+  // LOAD
   // =========================================
 
   useEffect(() => {
 
     fetchAdmins();
 
-    storesApi
-      .getAll(1, 100)
+    storesApi.getAll(1, 100)
 
       .then(res => {
+
+        console.log("STORES:", res);
 
         const data = res.data || res;
 
@@ -118,62 +117,43 @@ const StoreAdmins = () => {
 
       })
 
-      .catch(() =>
-        toast.error('Failed to load stores')
-      );
+      .catch(() => toast.error('Failed to load stores'));
 
   }, [fetchAdmins]);
 
   // =========================================
-  // PAGE LOADER
-  // =========================================
-
-  useEffect(() => {
-
-    const timer = setTimeout(() => {
-      setPageLoaded(true);
-    }, 250);
-
-    return () => clearTimeout(timer);
-
-  }, []);
-
-  // =========================================
-  // LOAD USER INFO
+  // LOAD USER DATA
   // =========================================
 
   useEffect(() => {
 
     const loadUsers = async () => {
 
-      if (!admins || admins.length === 0)
-        return;
+      if (!admins || admins.length === 0) return;
 
       const updated = await Promise.all(
 
         admins.map(async (admin) => {
 
+          console.log("ADMIN:", admin);
+
+          console.log("AUTH USER ID:", admin.authUserId);
+
           try {
 
-            await usersApi.getIamByAuthId(
-              admin.authUserId
-            );
+            const iamRes = await usersApi.getIamByAuthId(admin.authUserId);
 
-            const userRes =
-              await usersApi.getById(
-                admin.authUserId
-              );
+            const userRes = await usersApi.getById(admin.authUserId);
+
+            console.log("USER RES:", userRes);
 
             const user = userRes?.data;
 
             return {
               ...admin,
-              fullName:
-                user?.name || 'N/A',
-              email:
-                user?.email || 'N/A',
-              phone:
-                user?.phone || 'N/A',
+              fullName: user?.name || 'N/A',
+              email: user?.email || 'N/A',
+              phone: user?.phone || 'N/A',
             };
 
           } catch {
@@ -195,39 +175,24 @@ const StoreAdmins = () => {
   }, [admins]);
 
   // =========================================
-  // FILTERED ADMINS
+  // SEARCH
   // =========================================
 
   const filteredAdmins = useMemo(() => {
 
-    if (!searchTerm)
-      return adminsWithUser;
+    if (!searchTerm) return adminsWithUser;
 
     const s = searchTerm.toLowerCase();
 
     return adminsWithUser.filter(a =>
 
-      a.fullName
-        ?.toLowerCase()
-        .includes(s)
+      a.fullName?.toLowerCase().includes(s) ||
 
-      ||
+      a.email?.toLowerCase().includes(s) ||
 
-      a.email
-        ?.toLowerCase()
-        .includes(s)
+      a.phone?.toLowerCase().includes(s) ||
 
-      ||
-
-      a.phone
-        ?.toLowerCase()
-        .includes(s)
-
-      ||
-
-      a.store?.name
-        ?.toLowerCase()
-        .includes(s)
+      a.store?.name?.toLowerCase().includes(s)
 
     );
 
@@ -239,59 +204,47 @@ const StoreAdmins = () => {
 
   const analytics = useMemo(() => {
 
-    const total =
-      filteredAdmins?.length || 0;
+    const total = adminsWithUser?.length || 0;
 
-    const active =
-      filteredAdmins?.filter(
-        a => a.status === 'ACTIVE'
-      ).length || 0;
+    const active = adminsWithUser?.filter(
+      a => a.status === 'ACTIVE'
+    ).length || 0;
 
-    const suspended =
-      total - active;
-
-    const efficiency =
-      total > 0
-        ? Math.round(
-            (active / total) * 100
-          )
-        : 0;
+    const suspended = adminsWithUser?.filter(
+      a => a.status === 'SUSPENDED'
+    ).length || 0;
 
     return {
       total,
       active,
-      suspended,
-      efficiency,
+      suspended
     };
 
-  }, [filteredAdmins]);
+  }, [adminsWithUser]);
 
   // =========================================
   // PAGINATION
   // =========================================
 
   const totalPages = Math.ceil(
-    filteredAdmins.length / pageSize
+    filteredAdmins.length / ITEMS_PER_PAGE
   );
 
   const paginatedAdmins = useMemo(() => {
 
-    const start =
-      (currentPage - 1) * pageSize;
+    const startIndex = (
+      currentPage - 1
+    ) * ITEMS_PER_PAGE;
 
     return filteredAdmins.slice(
-      start,
-      start + pageSize
+      startIndex,
+      startIndex + ITEMS_PER_PAGE
     );
 
-  }, [
-    filteredAdmins,
-    currentPage,
-    pageSize
-  ]);
+  }, [filteredAdmins, currentPage]);
 
   // =========================================
-  // ACTIONS
+  // CREATE
   // =========================================
 
   const handleCreate = async (e) => {
@@ -300,9 +253,7 @@ const StoreAdmins = () => {
 
     if (!formData.storeId) {
 
-      toast.error(
-        'Please select a store first.'
-      );
+      toast.error('Please select a store first.');
 
       return;
 
@@ -324,6 +275,10 @@ const StoreAdmins = () => {
         phone: ''
       });
 
+    } catch {
+
+      // hook handles toast
+
     } finally {
 
       setFormLoading(false);
@@ -332,6 +287,10 @@ const StoreAdmins = () => {
 
   };
 
+  // =========================================
+  // DETAIL
+  // =========================================
+
   const handleViewDetail = (admin) => {
 
     setSelectedAdmin(admin);
@@ -339,6 +298,10 @@ const StoreAdmins = () => {
     setDetailOpen(true);
 
   };
+
+  // =========================================
+  // STATUS
+  // =========================================
 
   const handleStatusClick = (admin) => {
 
@@ -353,6 +316,7 @@ const StoreAdmins = () => {
     if (!selectedAdmin) return;
 
     const newStatus =
+
       selectedAdmin.status === 'ACTIVE'
         ? 'SUSPENDED'
         : 'ACTIVE';
@@ -366,6 +330,10 @@ const StoreAdmins = () => {
         newStatus
       );
 
+    } catch {
+
+      // hook handles toast
+
     } finally {
 
       setStatusLoading(false);
@@ -377,6 +345,10 @@ const StoreAdmins = () => {
     }
 
   };
+
+  // =========================================
+  // DELETE
+  // =========================================
 
   const handleDeleteClick = (admin) => {
 
@@ -396,6 +368,10 @@ const StoreAdmins = () => {
 
       await deleteAdmin(selectedAdmin.id);
 
+    } catch {
+
+      // hook handles toast
+
     } finally {
 
       setDeleteLoading(false);
@@ -409,11 +385,243 @@ const StoreAdmins = () => {
   };
 
   // =========================================
-  // GLASS STYLE
+  // TABLE
+  // =========================================
+
+  const columns = useMemo(() => [
+
+    {
+      key: 'fullName',
+
+      label: 'Administrator',
+
+      render: (val, row) => {
+
+        const name =
+          row.fullName ||
+          row.name ||
+          row.user?.fullName ||
+          row.user?.name ||
+          '-';
+
+        const email =
+          row.email ||
+          row.user?.email ||
+          '-';
+
+        return (
+
+          <div className="flex items-center gap-4">
+
+            <div className="
+w-12
+h-12
+rounded-2xl
+bg-orange-500/10
+text-orange-500
+flex
+items-center
+justify-center
+font-black
+text-sm
+transition-all
+duration-500
+group-hover:scale-110
+shadow-lg
+shadow-orange-500/10
+">
+
+              {name !== '-' ? name.charAt(0) : '?'}
+
+            </div>
+
+            <div>
+
+              <div className="
+font-black
+text-sm
+text-slate-800
+dark:text-white
+tracking-tight
+">
+
+                {name}
+
+              </div>
+
+              <div className="
+text-xs
+text-slate-500
+dark:text-slate-400
+">
+
+                {email}
+
+              </div>
+
+            </div>
+
+          </div>
+
+        );
+
+      }
+    },
+
+    {
+      key: 'store',
+
+      label: 'Assigned Hub',
+
+      render: (_, row) => (
+
+        <div className="flex items-center gap-2">
+
+          <div className="
+w-8
+h-8
+rounded-xl
+bg-indigo-500/10
+flex
+items-center
+justify-center
+">
+
+            <Store
+              size={14}
+              className="text-indigo-500"
+            />
+
+          </div>
+
+          <span className="
+text-sm
+font-bold
+text-slate-700
+dark:text-slate-200
+">
+
+            {row.store?.name || 'Unassigned'}
+
+          </span>
+
+        </div>
+
+      )
+    },
+
+    {
+      key: 'phone',
+
+      label: 'Contact',
+
+      render: (_, row) => {
+
+        const phone =
+          row.phone ||
+          row.phoneNumber ||
+          row.user?.phone ||
+          row.user?.phoneNumber ||
+          '-';
+
+        return (
+
+          <span className="
+text-xs
+font-mono
+font-bold
+text-slate-600
+dark:text-slate-300
+">
+
+            {phone}
+
+          </span>
+
+        );
+
+      }
+    },
+
+    {
+      key: 'status',
+
+      label: 'Status',
+
+      render: (val, row) => (
+
+        <button
+          onClick={() => handleStatusClick(row)}
+          className="cursor-pointer"
+        >
+
+          <StatusBadge status={val} />
+
+        </button>
+
+      )
+    },
+
+    {
+      key: 'actions',
+
+      label: '',
+
+      render: (_, row) => (
+
+        <div className="flex gap-2">
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleViewDetail(row)}
+            className="
+rounded-xl
+hover:bg-orange-500/10
+transition-all
+duration-300
+"
+          >
+
+            <Eye
+              size={16}
+              className="text-slate-500"
+            />
+
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleDeleteClick(row)}
+            className="
+rounded-xl
+hover:bg-red-500/10
+transition-all
+duration-300
+"
+          >
+
+            <Trash2
+              size={16}
+              className="text-slate-500"
+            />
+
+          </Button>
+
+        </div>
+
+      )
+    }
+
+  ], []);
+
+  // =========================================
+  // GLASS CARD
   // =========================================
 
   const glassCard = `
-bg-white
+bg-white/90
 dark:bg-slate-900/70
 backdrop-blur-2xl
 border
@@ -423,40 +631,7 @@ shadow-[0_10px_40px_rgba(0,0,0,0.06)]
 dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]
 transition-all
 duration-500
-hover:shadow-orange-500/10
 `;
-
-  // =========================================
-  // LOADER
-  // =========================================
-
-  if (!pageLoaded) {
-
-    return (
-
-      <div className="
-min-h-screen
-flex
-items-center
-justify-center
-bg-[#03140F]
-">
-
-        <div className="
-w-14
-h-14
-rounded-full
-border-4
-border-orange-500/20
-border-t-orange-500
-animate-spin
-" />
-
-      </div>
-
-    );
-
-  }
 
   return (
 
@@ -465,11 +640,11 @@ animate-spin
       <div className="
 min-h-screen
 bg-gradient-to-br
-from-slate-50
+from-orange-50
 via-white
-to-slate-100
-dark:from-[#03140F]
-dark:via-[#041B15]
+to-amber-50
+dark:from-[#140903]
+dark:via-[#1A0B04]
 dark:to-[#020617]
 transition-colors
 duration-500
@@ -484,101 +659,63 @@ duration-500
 
           initial={{
             opacity: 0,
-            scale: 1.02,
-            filter: 'blur(12px)',
+            y: 20
           }}
 
           animate={{
             opacity: 1,
-            scale: 1,
-            filter: 'blur(0px)',
+            y: 0
           }}
 
           transition={{
-            duration: 1,
-            ease: [0.22, 1, 0.36, 1],
+            duration: 0.7
           }}
 
           className="
-relative
-overflow-hidden
-p-8
+p-6
+lg:p-8
+space-y-8
 max-w-[1600px]
 mx-auto
-space-y-8
+relative
+overflow-hidden
 "
         >
 
-          {/* BACKGROUND */}
+          {/* BG EFFECT */}
 
           <div className="absolute inset-0 -z-10 overflow-hidden">
 
             <div className="
-absolute inset-0
-bg-[radial-gradient(#0f172a12_1px,transparent_1px)]
-dark:bg-[radial-gradient(#ffffff08_1px,transparent_1px)]
-[background-size:24px_24px]
-opacity-40
-" />
-
-            <motion.div
-
-              animate={{
-                y: [0, -30, 0],
-                x: [0, 20, 0],
-              }}
-
-              transition={{
-                duration: 10,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-
-              className="
 absolute
 top-[-10%]
 left-[-10%]
-w-[500px]
-h-[500px]
+w-[420px]
+h-[420px]
 bg-orange-500/10
 rounded-full
 blur-[120px]
-"
-            />
+" />
 
-            <motion.div
-
-              animate={{
-                y: [0, 40, 0],
-                x: [0, -20, 0],
-              }}
-
-              transition={{
-                duration: 14,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-
-              className="
+            <div className="
 absolute
 bottom-[-10%]
 right-[-10%]
-w-[500px]
-h-[500px]
+w-[420px]
+h-[420px]
 bg-indigo-500/10
 rounded-full
 blur-[120px]
-"
-            />
+" />
 
           </div>
 
-          {/* ANALYTICS */}
+          {/* STATS */}
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -586,13 +723,29 @@ blur-[120px]
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+
                     Total Admins
+
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+
                     {analytics.total}
-                  </h3>
+
+                  </h2>
 
                 </div>
 
@@ -601,10 +754,10 @@ w-14
 h-14
 rounded-2xl
 bg-orange-500/10
+text-orange-500
 flex
 items-center
 justify-center
-text-orange-500
 ">
 
                   <Users size={24} />
@@ -616,7 +769,7 @@ text-orange-500
             </motion.div>
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -624,13 +777,29 @@ text-orange-500
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+
                     Active Access
+
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+
                     {analytics.active}
-                  </h3>
+
+                  </h2>
 
                 </div>
 
@@ -639,10 +808,10 @@ w-14
 h-14
 rounded-2xl
 bg-emerald-500/10
+text-emerald-500
 flex
 items-center
 justify-center
-text-emerald-500
 ">
 
                   <ShieldCheck size={24} />
@@ -654,7 +823,7 @@ text-emerald-500
             </motion.div>
 
             <motion.div
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -662,13 +831,29 @@ text-emerald-500
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+
                     Suspended
+
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+
                     {analytics.suspended}
-                  </h3>
+
+                  </h2>
 
                 </div>
 
@@ -676,49 +861,16 @@ text-emerald-500
 w-14
 h-14
 rounded-2xl
-bg-red-500/10
+bg-rose-500/10
+text-rose-500
 flex
 items-center
 justify-center
-text-red-500
 ">
 
-                  <Globe size={24} />
+                  <Activity size={24} />
 
                 </div>
-
-              </div>
-
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -4 }}
-              className={`${glassCard} rounded-[2rem] p-6`}
-            >
-
-              <div className="flex-1">
-
-                <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black mb-3">
-                  System Stability
-                </p>
-
-                <div className="flex items-center justify-between mb-2">
-
-                  <span className="text-3xl font-black text-slate-800 dark:text-white">
-                    {analytics.efficiency}%
-                  </span>
-
-                  <Activity
-                    size={18}
-                    className="text-indigo-500"
-                  />
-
-                </div>
-
-                <Progress
-                  value={analytics.efficiency}
-                  className="h-2 bg-slate-200 dark:bg-slate-800"
-                />
 
               </div>
 
@@ -732,141 +884,145 @@ text-red-500
 
             initial={{
               opacity: 0,
-              y: 40,
+              y: 30
             }}
 
             animate={{
               opacity: 1,
-              y: 0,
+              y: 0
             }}
 
             transition={{
-              duration: 0.8,
-            }}
-
-            whileHover={{
-              y: -2,
+              duration: 0.8
             }}
 
             className={`${glassCard} rounded-[2.5rem] overflow-hidden`}
           >
 
-            {/* HEADER */}
+            {/* TOP BAR */}
 
             <div className="
-p-8
+p-6
 border-b
-border-white/10
+border-slate-200
+dark:border-slate-800
 flex
 flex-col
 lg:flex-row
+lg:items-center
 justify-between
-items-center
-gap-5
-bg-slate-50
-dark:bg-slate-900/10
+gap-4
+bg-white/60
+dark:bg-slate-900/40
 backdrop-blur-xl
 ">
 
-              <div className="flex items-center gap-4">
+              <div>
 
-                <div className="
-p-3
-rounded-2xl
-bg-gradient-to-br
-from-indigo-500
-to-indigo-700
-text-white
-shadow-xl
-shadow-indigo-500/20
+                <h3 className="
+text-lg
+font-black
+text-slate-800
+dark:text-white
+tracking-tight
+flex
+items-center
+gap-2
 ">
 
-                  <BarChart3 size={20} />
+                  <Sparkles
+                    size={18}
+                    className="text-orange-500"
+                  />
 
-                </div>
+                  Store Authority Matrix
 
-                <div>
+                </h3>
 
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-white">
-                    Store Administrator Matrix
-                  </h3>
+                <p className="
+text-sm
+text-slate-500
+dark:text-slate-400
+mt-1
+">
 
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Monitor and control operational access
-                  </p>
+                  Live overview of all administrative operators
 
-                </div>
+                </p>
 
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+              <div className="
+flex
+items-center
+gap-3
+flex-col
+sm:flex-row
+w-full
+sm:w-auto
+">
 
-                <div className="relative w-full sm:w-80">
+                <div className="relative w-full sm:w-72">
 
-                  <Search className="
+                  <Search
+                    className="
 absolute
 left-3
 top-1/2
 -translate-y-1/2
+w-4
+h-4
 text-slate-400
-size-4
-" />
+"
+                  />
 
                   <Input
+                    className="
+pl-10
+h-11
+rounded-2xl
+border-slate-200
+dark:border-slate-700
+bg-white/70
+dark:bg-slate-900/50
+backdrop-blur-xl
+transition-all
+duration-300
+focus-visible:ring-2
+focus-visible:ring-orange-500/20
+"
                     placeholder="Search administrators..."
                     value={searchTerm}
                     onChange={(e) =>
                       setSearchTerm(e.target.value)
                     }
-                    className="
-pl-10
-h-12
-rounded-2xl
-bg-white/70
-dark:bg-slate-900/40
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
-"
                   />
 
                 </div>
 
                 <Button
-
-                  onClick={() =>
-                    setModalOpen(true)
-                  }
-
+                  onClick={() => setModalOpen(true)}
                   className="
+h-11
 rounded-2xl
-h-12
-px-6
-bg-orange-500
-hover:bg-orange-600
-text-white
-font-black
-shadow-xl
+px-5
+font-bold
+gap-2
+bg-orange-600
+hover:bg-orange-700
+shadow-lg
 shadow-orange-500/20
 transition-all
 duration-500
-hover:scale-105
-active:scale-95
+hover:scale-[1.02]
+w-full
+sm:w-auto
 "
-
                 >
 
-                  <UserPlus
-                    size={18}
-                    className="mr-2"
-                  />
+                  <UserPlus size={18} />
 
-                  Add Admin
-
-                  <ArrowRight
-                    size={16}
-                    className="ml-2"
-                  />
+                  Add Store Admin
 
                 </Button>
 
@@ -876,7 +1032,7 @@ active:scale-95
 
             {/* TABLE */}
 
-            <div className="overflow-hidden">
+            <div className="p-4">
 
               {loading ? (
 
@@ -885,236 +1041,8 @@ active:scale-95
               ) : (
 
                 <DataTable
-
+                  columns={columns}
                   data={paginatedAdmins}
-
-                  columns={[
-
-                    {
-                      key: 'fullName',
-                      label: 'Administrator',
-
-                      render: (val, row) => {
-
-                        const name =
-                          row.fullName ||
-                          row.name ||
-                          row.user?.fullName ||
-                          row.user?.name ||
-                          '-';
-
-                        const email =
-                          row.email ||
-                          row.user?.email ||
-                          '-';
-
-                        return (
-
-                          <div className="flex items-center gap-4">
-
-                            <div className="
-w-11
-h-11
-rounded-2xl
-bg-gradient-to-br
-from-orange-500/20
-to-orange-600/10
-flex
-items-center
-justify-center
-text-orange-500
-shadow-lg
-shadow-orange-500/10
-font-black
-uppercase
-">
-
-                              {name !== '-'
-                                ? name.charAt(0)
-                                : '?'}
-
-                            </div>
-
-                            <div>
-
-                              <p className="font-black text-slate-700 dark:text-white tracking-tight">
-                                {name}
-                              </p>
-
-                              <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-bold">
-                                {email}
-                              </p>
-
-                            </div>
-
-                          </div>
-
-                        );
-
-                      }
-                    },
-
-                    {
-                      key: 'store',
-                      label: 'Assigned Hub',
-
-                      render: (_, row) => (
-
-                        <div className="flex items-center gap-3">
-
-                          <div className="
-w-9
-h-9
-rounded-xl
-bg-indigo-500/10
-flex
-items-center
-justify-center
-text-indigo-500
-">
-
-                            <Store size={16} />
-
-                          </div>
-
-                          <div>
-
-                            <p className="font-bold text-slate-700 dark:text-white">
-                              {row.store?.name || 'Unassigned'}
-                            </p>
-
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                              Retail Node
-                            </p>
-
-                          </div>
-
-                        </div>
-
-                      )
-                    },
-
-                    {
-                      key: 'phone',
-                      label: 'Contact',
-
-                      render: (_, row) => {
-
-                        const phone =
-                          row.phone ||
-                          row.phoneNumber ||
-                          row.user?.phone ||
-                          row.user?.phoneNumber ||
-                          '-';
-
-                        return (
-
-                          <code className="
-px-3
-py-1.5
-rounded-xl
-bg-slate-100
-dark:bg-slate-800
-text-[11px]
-font-mono
-tracking-[0.2em]
-font-bold
-text-indigo-500
-border
-border-slate-200
-dark:border-slate-700
-">
-                            {phone}
-                          </code>
-
-                        );
-
-                      }
-                    },
-
-                    {
-                      key: 'status',
-                      label: 'Access Status',
-
-                      render: (val, row) => (
-
-                        <button
-                          onClick={() =>
-                            handleStatusClick(row)
-                          }
-                          className="cursor-pointer"
-                        >
-
-                          <StatusBadge status={val} />
-
-                        </button>
-
-                      )
-                    },
-
-                    {
-                      key: 'actions',
-                      label: 'Controls',
-
-                      render: (_, row) => (
-
-                        <div className="flex items-center gap-2">
-
-                          <Button
-
-                            size="sm"
-
-                            variant="ghost"
-
-                            onClick={() =>
-                              handleViewDetail(row)
-                            }
-
-                            className="
-rounded-xl
-hover:bg-blue-500/10
-hover:text-blue-500
-transition-all
-duration-300
-"
-
-                          >
-
-                            <Eye size={16} />
-
-                          </Button>
-
-                          <Button
-
-                            size="sm"
-
-                            variant="ghost"
-
-                            onClick={() =>
-                              handleDeleteClick(row)
-                            }
-
-                            className="
-rounded-xl
-hover:bg-red-500/10
-hover:text-red-500
-transition-all
-duration-300
-"
-
-                          >
-
-                            <Trash2 size={16} />
-
-                          </Button>
-
-                        </div>
-
-                      )
-                    }
-
-                  ]}
-
                 />
 
               )}
@@ -1148,12 +1076,12 @@ dark:text-slate-400
 
                 Showing
                 {" "}
-                {(currentPage - 1) * pageSize + 1}
+                {(currentPage - 1) * ITEMS_PER_PAGE + 1}
 
                 {" - "}
 
                 {Math.min(
-                  currentPage * pageSize,
+                  currentPage * ITEMS_PER_PAGE,
                   filteredAdmins.length
                 )}
 
@@ -1167,26 +1095,20 @@ dark:text-slate-400
               <div className="flex items-center gap-3">
 
                 <Button
-
                   size="sm"
-
                   variant="outline"
-
                   disabled={currentPage === 1}
-
                   onClick={() =>
                     setCurrentPage(prev => prev - 1)
                   }
-
                   className="
 rounded-xl
 border-slate-200
 dark:border-slate-700
 "
-
                 >
 
-                  Prev
+                  <ChevronLeft size={16} />
 
                 </Button>
 
@@ -1194,7 +1116,7 @@ dark:border-slate-700
 px-4
 py-2
 rounded-xl
-bg-orange-500
+bg-orange-600
 text-white
 text-sm
 font-black
@@ -1209,29 +1131,23 @@ shadow-orange-500/20
                 </div>
 
                 <Button
-
                   size="sm"
-
                   variant="outline"
-
                   disabled={
                     currentPage === totalPages ||
                     totalPages === 0
                   }
-
                   onClick={() =>
                     setCurrentPage(prev => prev + 1)
                   }
-
                   className="
 rounded-xl
 border-slate-200
 dark:border-slate-700
 "
-
                 >
 
-                  Next
+                  <ChevronRight size={16} />
 
                 </Button>
 
@@ -1247,170 +1163,174 @@ dark:border-slate-700
 
       {/* CREATE MODAL */}
 
-      <Modal
+      {modalOpen && (
 
-        isOpen={modalOpen}
-
-        onClose={() =>
-          setModalOpen(false)
-        }
-
-        title="Initialize Store Administrator"
-
-        size="lg"
-      >
-
-        <form
-          onSubmit={handleCreate}
-          className="space-y-6 py-4"
+        <Modal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          title="Initialize Store Administrator"
+          size="lg"
         >
 
-          <div className="space-y-2">
+          <form
+            onSubmit={handleCreate}
+            className="space-y-6 py-2"
+          >
 
-            <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
+            <div className="
+border
+border-dashed
+border-orange-200
+dark:border-orange-900/40
+rounded-3xl
+p-5
+bg-orange-50/60
+dark:bg-orange-950/10
+space-y-4
 ">
-
-              Assigned Store Hub
-
-            </Label>
-
-            <Select
-
-              value={formData.storeId}
-
-              onValueChange={(val) =>
-                setFormData({
-                  ...formData,
-                  storeId: val
-                })
-              }
-
-            >
-
-              <SelectTrigger className="
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-">
-
-                <SelectValue placeholder="Select store" />
-
-              </SelectTrigger>
-
-              <SelectContent>
-
-                {stores.map(s => (
-
-                  <SelectItem
-                    key={s.id}
-                    value={s.id}
-                  >
-
-                    {s.name}
-
-                  </SelectItem>
-
-                ))}
-
-              </SelectContent>
-
-            </Select>
-
-          </div>
-
-          <div className="space-y-2">
-
-            <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
-">
-
-              Full Name
-
-            </Label>
-
-            <div className="relative">
-
-              <ShieldCheck className="
-absolute
-left-3
-top-1/2
--translate-y-1/2
-text-slate-400
-size-4
-" />
-
-              <Input
-                className="
-pl-10
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
-"
-                placeholder="e.g. Usman Ali"
-                value={formData.fullName}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    fullName: e.target.value
-                  })
-                }
-                required
-              />
-
-            </div>
-
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            <div className="space-y-2">
 
               <Label className="
-text-[10px]
-font-black
+text-[11px]
 uppercase
 tracking-[0.25em]
-text-slate-500
+text-orange-600
+font-black
 ">
 
-                Official Email
+                Target Store Hub
 
               </Label>
 
-              <div className="relative">
+              <Select
+                value={formData.storeId}
+                onValueChange={(val) =>
+                  setFormData({
+                    ...formData,
+                    storeId: val
+                  })
+                }
+              >
 
-                <Mail className="
+                <SelectTrigger className="rounded-2xl h-11">
+
+                  <SelectValue placeholder="Select store for management" />
+
+                </SelectTrigger>
+
+                <SelectContent>
+
+                  {stores.map(s => (
+
+                    <SelectItem
+                      key={s.id}
+                      value={s.id}
+                    >
+
+                      {s.name}
+
+                    </SelectItem>
+
+                  ))}
+
+                </SelectContent>
+
+              </Select>
+
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="space-y-2">
+
+                <Label>Full Name</Label>
+
+                <div className="relative">
+
+                  <ShieldCheck
+                    className="
 absolute
 left-3
 top-1/2
 -translate-y-1/2
 text-slate-400
 size-4
-" />
+"
+                  />
+
+                  <Input
+                    className="pl-10 h-11 rounded-2xl"
+                    placeholder="e.g. Usman Ali"
+                    value={formData.fullName}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        fullName: e.target.value
+                      })
+                    }
+                    required
+                  />
+
+                </div>
+
+              </div>
+
+              <div className="space-y-2">
+
+                <Label>Phone Number</Label>
+
+                <div className="relative">
+
+                  <Phone
+                    className="
+absolute
+left-3
+top-1/2
+-translate-y-1/2
+text-slate-400
+size-4
+"
+                  />
+
+                  <Input
+                    className="pl-10 h-11 rounded-2xl"
+                    placeholder="03001234567"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        phone: e.target.value
+                      })
+                    }
+                    required
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="space-y-2">
+
+              <Label>Email Address</Label>
+
+              <div className="relative">
+
+                <Mail
+                  className="
+absolute
+left-3
+top-1/2
+-translate-y-1/2
+text-slate-400
+size-4
+"
+                />
 
                 <Input
-                  className="
-pl-10
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
-"
+                  className="pl-10 h-11 rounded-2xl"
                   type="email"
-                  placeholder="admin@barqi.pk"
+                  placeholder="store@barqi.pk"
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({
@@ -1427,44 +1347,30 @@ focus-visible:ring-orange-500
 
             <div className="space-y-2">
 
-              <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
-">
-
-                Phone Number
-
-              </Label>
+              <Label>Temporary Password</Label>
 
               <div className="relative">
 
-                <Phone className="
+                <Lock
+                  className="
 absolute
 left-3
 top-1/2
 -translate-y-1/2
 text-slate-400
 size-4
-" />
+"
+                />
 
                 <Input
-                  className="
-pl-10
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
-"
-                  placeholder="03001234567"
-                  value={formData.phone}
+                  className="pl-10 h-11 rounded-2xl"
+                  type="password"
+                  placeholder="••••••••"
+                  value={formData.password}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      phone: e.target.value
+                      password: e.target.value
                     })
                   }
                   required
@@ -1472,156 +1378,103 @@ focus-visible:ring-orange-500
 
               </div>
 
-            </div>
-
-          </div>
-
-          <div className="space-y-2">
-
-            <Label className="
-text-[10px]
-font-black
-uppercase
-tracking-[0.25em]
-text-slate-500
+              <p className="
+text-[11px]
+text-slate-400
+italic
 ">
 
-              Temporary Password
+                User will be prompted to change password after first login.
 
-            </Label>
-
-            <div className="relative">
-
-              <Lock className="
-absolute
-left-3
-top-1/2
--translate-y-1/2
-text-slate-400
-size-4
-" />
-
-              <Input
-                className="
-pl-10
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
-"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    password: e.target.value
-                  })
-                }
-                required
-              />
+              </p>
 
             </div>
 
-          </div>
+            <div className="
+flex
+justify-end
+gap-3
+pt-5
+border-t
+border-slate-200
+dark:border-slate-800
+">
 
-          <div className="flex gap-4 pt-4">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setModalOpen(false)}
+                className="rounded-2xl"
+              >
 
-            <Button
+                Cancel
 
-              type="button"
+              </Button>
 
-              variant="outline"
-
-              onClick={() =>
-                setModalOpen(false)
-              }
-
-              className="
-flex-1
-h-12
+              <Button
+                disabled={formLoading}
+                type="submit"
+                className="
+min-w-[160px]
 rounded-2xl
-"
-
-              disabled={formLoading}
-
-            >
-
-              Cancel
-
-            </Button>
-
-            <Button
-
-              type="submit"
-
-              disabled={formLoading}
-
-              className="
-flex-1
-h-12
-rounded-2xl
-bg-orange-500
-hover:bg-orange-600
-text-white
-font-bold
-shadow-xl
+bg-orange-600
+hover:bg-orange-700
+shadow-lg
 shadow-orange-500/20
 "
+              >
 
-            >
+                {formLoading ? (
 
-              {formLoading ? (
+                  <Loader2 className="animate-spin" />
 
-                <Loader2 className="animate-spin mr-2" />
+                ) : (
 
-              ) : (
+                  'Create Administrator'
 
-                'Create Administrator'
+                )}
 
-              )}
+              </Button>
 
-            </Button>
+            </div>
 
-          </div>
+          </form>
 
-        </form>
+        </Modal>
 
-      </Modal>
+      )}
 
       {/* DETAIL MODAL */}
 
       {detailOpen && selectedAdmin && (
 
         <Modal
-
           isOpen={detailOpen}
-
           onClose={() => {
             setDetailOpen(false);
             setSelectedAdmin(null);
           }}
-
-          title="Administrator Details"
+          title="Administrator Detail"
+          size="md"
         >
 
-          <div className="space-y-5 py-3">
+          <div className="space-y-5 py-2">
 
             <div className="flex items-center gap-4">
 
               <div className="
-w-16
-h-16
+size-16
 rounded-3xl
 bg-orange-500/10
+text-orange-500
 flex
 items-center
 justify-center
-text-orange-500
 font-black
 text-2xl
 uppercase
+shadow-lg
+shadow-orange-500/10
 ">
 
                 {selectedAdmin.fullName?.charAt(0)}
@@ -1630,12 +1483,25 @@ uppercase
 
               <div>
 
-                <p className="text-xl font-black text-slate-800 dark:text-white">
+                <p className="
+text-xl
+font-black
+text-slate-800
+dark:text-white
+">
+
                   {selectedAdmin.fullName}
+
                 </p>
 
-                <p className="text-sm text-slate-500">
+                <p className="
+text-sm
+text-slate-500
+dark:text-slate-400
+">
+
                   {selectedAdmin.email}
+
                 </p>
 
               </div>
@@ -1644,48 +1510,110 @@ uppercase
 
             <div className="grid grid-cols-2 gap-4">
 
-              <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4">
+              <div className="
+bg-slate-50
+dark:bg-slate-900/50
+rounded-2xl
+p-4
+">
 
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+                <p className="
+text-[10px]
+uppercase
+font-black
+tracking-[0.2em]
+text-slate-400
+mb-2
+">
+
                   Phone
+
                 </p>
 
                 <p className="font-semibold">
+
                   {selectedAdmin.phone || '-'}
+
                 </p>
 
               </div>
 
-              <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4">
+              <div className="
+bg-slate-50
+dark:bg-slate-900/50
+rounded-2xl
+p-4
+">
 
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+                <p className="
+text-[10px]
+uppercase
+font-black
+tracking-[0.2em]
+text-slate-400
+mb-2
+">
+
                   Status
+
                 </p>
 
                 <StatusBadge status={selectedAdmin.status} />
 
               </div>
 
-              <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4">
+              <div className="
+bg-slate-50
+dark:bg-slate-900/50
+rounded-2xl
+p-4
+">
 
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+                <p className="
+text-[10px]
+uppercase
+font-black
+tracking-[0.2em]
+text-slate-400
+mb-2
+">
+
                   Assigned Store
+
                 </p>
 
                 <p className="font-semibold">
+
                   {selectedAdmin.store?.name || 'Unassigned'}
+
                 </p>
 
               </div>
 
-              <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4">
+              <div className="
+bg-slate-50
+dark:bg-slate-900/50
+rounded-2xl
+p-4
+">
 
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+                <p className="
+text-[10px]
+uppercase
+font-black
+tracking-[0.2em]
+text-slate-400
+mb-2
+">
+
                   Role
+
                 </p>
 
                 <p className="font-black uppercase">
+
                   {selectedAdmin.role}
+
                 </p>
 
               </div>
@@ -1718,51 +1646,37 @@ uppercase
       {/* STATUS CONFIRM */}
 
       <ConfirmDialog
-
         isOpen={statusConfirmOpen}
-
         onClose={() => {
           setStatusConfirmOpen(false);
           setSelectedAdmin(null);
         }}
-
         onConfirm={handleConfirmStatus}
-
         title={
           selectedAdmin?.status === 'ACTIVE'
-            ? 'Suspend Administrator'
-            : 'Activate Administrator'
+            ? 'Suspend Admin'
+            : 'Activate Admin'
         }
-
         message={`Are you sure you want to ${
           selectedAdmin?.status === 'ACTIVE'
             ? 'suspend'
             : 'activate'
         } ${selectedAdmin?.fullName}?`}
-
         loading={statusLoading}
-
       />
 
       {/* DELETE CONFIRM */}
 
       <ConfirmDialog
-
         isOpen={deleteConfirmOpen}
-
         onClose={() => {
           setDeleteConfirmOpen(false);
           setSelectedAdmin(null);
         }}
-
         onConfirm={handleConfirmDelete}
-
-        title="Remove Store Administrator"
-
-        message={`Are you sure you want to permanently remove ${selectedAdmin?.fullName}?`}
-
+        title="Remove Store Admin"
+        message={`Are you sure you want to permanently remove ${selectedAdmin?.fullName} as store admin?`}
         loading={deleteLoading}
-
       />
 
     </DashboardLayout>

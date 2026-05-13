@@ -1,7 +1,7 @@
 import React, {
   useState,
   useEffect,
-  useMemo,
+  useMemo
 } from 'react';
 
 import {
@@ -12,26 +12,32 @@ import {
   Hash,
   Globe,
   Activity,
-  ArrowRight,
-  BarChart3,
   ShieldCheck,
+  Search,
+  Loader2
 } from 'lucide-react';
 
 import { motion } from 'framer-motion';
 
+// Components
 import Header from '../components/common/Header';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import StatusBadge from '../components/common/StatusBadge';
+import TableSkeleton from '../components/common/TableSkeleton';
 
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Progress } from '../components/ui/progress';
 
 import { useCities } from '../hooks/useCities';
+
+const INITIAL_FORM_STATE = {
+  name: '',
+  code: ''
+};
 
 const Cities = () => {
 
@@ -50,20 +56,18 @@ const Cities = () => {
 
   const [selectedCity, setSelectedCity] = useState(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    code: ''
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
   const [formLoading, setFormLoading] = useState(false);
 
-  const [pageLoaded, setPageLoaded] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [pageSize, setPageSize] = useState(10);
+  const itemsPerPage = 10;
+
   // =========================================
-  // INITIAL LOAD
+  // LOAD
   // =========================================
 
   useEffect(() => {
@@ -71,20 +75,6 @@ const Cities = () => {
     fetchCities();
 
   }, [fetchCities]);
-
-  // =========================================
-  // PAGE LOADER
-  // =========================================
-
-  useEffect(() => {
-
-    const timer = setTimeout(() => {
-      setPageLoaded(true);
-    }, 250);
-
-    return () => clearTimeout(timer);
-
-  }, []);
 
   // =========================================
   // ANALYTICS
@@ -95,206 +85,69 @@ const Cities = () => {
     const total = cities?.length || 0;
 
     const active = cities?.filter(
-      c => c.status === 'ACTIVE'
+      c => ['ACTIVE', 'APPROVED'].includes(c.status)
     ).length || 0;
 
-    const inactive = total - active;
-
-    const efficiency = total > 0
-      ? Math.round((active / total) * 100)
-      : 0;
+    const inactive = cities?.filter(
+      c => ['INACTIVE', 'DEACTIVATED'].includes(c.status)
+    ).length || 0;
 
     return {
       total,
       active,
-      inactive,
-      efficiency,
+      inactive
     };
 
   }, [cities]);
 
   // =========================================
+  // SEARCH
+  // =========================================
+
+  const filteredCities = useMemo(() => {
+
+    if (!searchTerm) return cities;
+
+    return cities.filter(c =>
+
+      c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+
+      c.code?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    );
+
+  }, [cities, searchTerm]);
+
+  // =========================================
   // PAGINATION
   // =========================================
 
-  const totalPages = Math.ceil(
-    cities.length / pageSize
-  );
+  const totalPages = Math.ceil(filteredCities.length / itemsPerPage);
 
   const paginatedCities = useMemo(() => {
 
-    const start =
-      (currentPage - 1) * pageSize;
+    const startIndex = (currentPage - 1) * itemsPerPage;
 
-    return cities.slice(
-      start,
-      start + pageSize
+    return filteredCities.slice(
+      startIndex,
+      startIndex + itemsPerPage
     );
 
-  }, [cities, currentPage, pageSize]);
+  }, [filteredCities, currentPage]);
 
   // =========================================
-  // TABLE COLUMNS
+  // MODAL
   // =========================================
 
-  const columns = [
+  const handleOpenModal = () => {
 
-    {
-      key: 'name',
-      label: 'Regional Node',
+    setSelectedCity(null);
 
-      render: (val) => (
+    setFormData(INITIAL_FORM_STATE);
 
-        <div className="flex items-center gap-4">
+    setModalOpen(true);
 
-          <div className="
-w-11
-h-11
-rounded-2xl
-bg-gradient-to-br
-from-orange-500/20
-to-orange-600/10
-flex
-items-center
-justify-center
-text-orange-500
-shadow-lg
-shadow-orange-500/10
-">
-
-            <MapPin size={18} />
-
-          </div>
-
-          <div>
-
-            <p className="font-black text-slate-700 dark:text-white tracking-tight">
-              {val}
-            </p>
-
-            <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-bold">
-              Regional Infrastructure
-            </p>
-
-          </div>
-
-        </div>
-
-      )
-    },
-
-    {
-      key: 'code',
-      label: 'Node Code',
-
-      render: (val) => (
-
-        <code className="
-px-3
-py-1.5
-rounded-xl
-bg-slate-100
-dark:bg-slate-800
-text-[11px]
-font-mono
-tracking-[0.2em]
-font-bold
-text-indigo-500
-border
-border-slate-200
-dark:border-slate-700
-">
-          {val}
-        </code>
-
-      )
-    },
-
-    {
-      key: 'status',
-      label: 'Network Status',
-
-      render: (val) => (
-        <StatusBadge status={val} />
-      )
-    },
-
-    {
-      key: 'createdAt',
-      label: 'Deployment Date',
-
-      render: (val) => (
-
-        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-          {val
-            ? new Date(val).toLocaleDateString()
-            : '-'}
-        </span>
-
-      )
-    },
-
-    {
-      key: 'actions',
-      label: 'Controls',
-
-      render: (_, row) => (
-
-        <div className="flex items-center gap-2">
-
-          <Button
-
-            size="sm"
-
-            variant="ghost"
-
-            onClick={() => handleEdit(row)}
-
-            className="
-rounded-xl
-hover:bg-blue-500/10
-hover:text-blue-500
-transition-all
-duration-300
-"
-
-          >
-
-            <Edit size={16} />
-
-          </Button>
-
-          <Button
-
-            size="sm"
-
-            variant="ghost"
-
-            onClick={() => handleToggleStatus(row)}
-
-            className="
-rounded-xl
-hover:bg-red-500/10
-hover:text-red-500
-transition-all
-duration-300
-"
-
-          >
-
-            <Trash2 size={16} />
-
-          </Button>
-
-        </div>
-
-      )
-    }
-  ];
-
-  // =========================================
-  // ACTIONS
-  // =========================================
+  };
 
   const handleEdit = (city) => {
 
@@ -316,6 +169,10 @@ duration-300
     setConfirmOpen(true);
 
   };
+
+  // =========================================
+  // SUBMIT
+  // =========================================
 
   const handleSubmit = async (e) => {
 
@@ -340,19 +197,13 @@ duration-300
 
       setModalOpen(false);
 
-      setFormData({
-        name: '',
-        code: ''
-      });
-
       setSelectedCity(null);
+
+      setFormData(INITIAL_FORM_STATE);
 
     } catch (error) {
 
-      console.error(
-        'Operation failed:',
-        error
-      );
+      console.error('Operation failed:', error);
 
     } finally {
 
@@ -362,24 +213,23 @@ duration-300
 
   };
 
+  // =========================================
+  // STATUS TOGGLE
+  // =========================================
+
   const handleConfirmToggle = async () => {
 
-    if (selectedCity) {
+    if (!selectedCity) return;
 
-      try {
+    try {
 
-        await deactivateCity(
-          selectedCity.id
-        );
+      await deactivateCity(selectedCity.id);
 
-      } catch (error) {
+    } catch (error) {
 
-        console.error(
-          'Status update failed:',
-          error
-        );
+      console.error('Status update failed:', error);
 
-      }
+    } finally {
 
       setConfirmOpen(false);
 
@@ -389,25 +239,193 @@ duration-300
 
   };
 
-  const handleOpenModal = () => {
+  // =========================================
+  // TABLE
+  // =========================================
 
-    setSelectedCity(null);
+  const columns = useMemo(() => [
 
-    setFormData({
-      name: '',
-      code: ''
-    });
+    {
+      key: 'name',
 
-    setModalOpen(true);
+      label: 'City',
 
-  };
+      render: (v, r) => (
+
+        <div className="flex items-center gap-4 group">
+
+          <div className="
+w-11
+h-11
+rounded-2xl
+bg-emerald-500/10
+text-emerald-500
+flex
+items-center
+justify-center
+transition-all
+duration-500
+group-hover:scale-110
+">
+
+            <MapPin size={18} />
+
+          </div>
+
+          <div>
+
+            <div className="
+font-black
+text-sm
+text-slate-800
+dark:text-white
+tracking-tight
+">
+
+              {v}
+
+            </div>
+
+            <div className="
+text-xs
+text-slate-500
+dark:text-slate-400
+tracking-wide
+">
+
+              Regional Node
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )
+    },
+
+    {
+      key: 'code',
+
+      label: 'Region Code',
+
+      render: (v) => (
+
+        <span className="
+px-3
+py-1
+rounded-full
+bg-slate-100
+dark:bg-slate-800
+text-[10px]
+font-black
+tracking-[0.2em]
+uppercase
+text-slate-600
+dark:text-slate-300
+font-mono
+">
+
+          {v}
+
+        </span>
+
+      )
+    },
+
+    {
+      key: 'status',
+
+      label: 'Status',
+
+      render: (v) => (
+        <StatusBadge status={v} />
+      )
+    },
+
+    {
+      key: 'createdAt',
+
+      label: 'Created',
+
+      render: (v) => (
+
+        <span className="
+text-sm
+text-slate-600
+dark:text-slate-300
+font-medium
+">
+
+          {v
+            ? new Date(v).toLocaleDateString()
+            : '-'}
+
+        </span>
+
+      )
+    },
+
+    {
+      key: 'actions',
+
+      label: '',
+
+      render: (_, row) => (
+
+        <div className="flex items-center gap-2">
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleEdit(row)}
+            className="
+rounded-xl
+hover:bg-indigo-500/10
+transition-all
+duration-300
+"
+          >
+
+            <Edit
+              size={16}
+              className="text-slate-500"
+            />
+
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleToggleStatus(row)}
+            className="
+rounded-xl
+hover:bg-red-500/10
+transition-all
+duration-300
+"
+          >
+
+            <Trash2
+              size={16}
+              className="text-red-400"
+            />
+
+          </Button>
+
+        </div>
+
+      )
+    }
+
+  ], []);
 
   // =========================================
-  // GLASS STYLE
+  // CARD STYLE
   // =========================================
 
   const glassCard = `
-bg-white
+bg-white/90
 dark:bg-slate-900/70
 backdrop-blur-2xl
 border
@@ -417,39 +435,7 @@ shadow-[0_10px_40px_rgba(0,0,0,0.06)]
 dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]
 transition-all
 duration-500
-hover:shadow-orange-500/10
 `;
-
-  // =========================================
-  // LOADER
-  // =========================================
-
-  if (!pageLoaded) {
-
-    return (
-
-      <div className="
-min-h-screen
-flex
-items-center
-justify-center
-bg-[#03140F]
-">
-
-        <div className="
-w-14
-h-14
-rounded-full
-border-4
-border-orange-500/20
-border-t-orange-500
-animate-spin
-" />
-
-      </div>
-
-    );
-  }
 
   return (
 
@@ -470,116 +456,74 @@ duration-500
 
         <Header
           title="Regional Infrastructure"
-          subtitle="Configure and manage active city nodes within the Barqi network"
+          subtitle="Configure and manage operational city nodes"
         />
 
         <motion.div
 
           initial={{
             opacity: 0,
-            scale: 1.02,
-            filter: 'blur(12px)',
+            y: 20
           }}
 
           animate={{
             opacity: 1,
-            scale: 1,
-            filter: 'blur(0px)',
+            y: 0
           }}
 
           transition={{
-            duration: 1,
-            ease: [0.22, 1, 0.36, 1],
+            duration: 0.7
           }}
 
           className="
-relative
-overflow-hidden
-p-8
+p-6
+lg:p-8
+space-y-8
 max-w-[1600px]
 mx-auto
-space-y-8
+relative
+overflow-hidden
 "
         >
 
           {/* ========================================= */}
-          {/* BACKGROUND */}
+          {/* BACKGROUND EFFECT */}
           {/* ========================================= */}
 
           <div className="absolute inset-0 -z-10 overflow-hidden">
 
             <div className="
-absolute inset-0
-bg-[radial-gradient(#0f172a12_1px,transparent_1px)]
-dark:bg-[radial-gradient(#ffffff08_1px,transparent_1px)]
-[background-size:24px_24px]
-opacity-40
-" />
-
-            <motion.div
-
-              animate={{
-                y: [0, -30, 0],
-                x: [0, 20, 0],
-              }}
-
-              transition={{
-                duration: 10,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-
-              className="
 absolute
 top-[-10%]
 left-[-10%]
-w-[500px]
-h-[500px]
-bg-orange-500/10
+w-[420px]
+h-[420px]
+bg-emerald-500/10
 rounded-full
 blur-[120px]
-"
-            />
+" />
 
-            <motion.div
-
-              animate={{
-                y: [0, 40, 0],
-                x: [0, -20, 0],
-              }}
-
-              transition={{
-                duration: 14,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-
-              className="
+            <div className="
 absolute
 bottom-[-10%]
 right-[-10%]
-w-[500px]
-h-[500px]
-bg-indigo-500/10
+w-[420px]
+h-[420px]
+bg-cyan-500/10
 rounded-full
 blur-[120px]
-"
-            />
+" />
 
           </div>
 
           {/* ========================================= */}
-          {/* TOP ANALYTICS */}
+          {/* STATS */}
           {/* ========================================= */}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <motion.div
-
-              whileHover={{
-                y: -4,
-              }}
-
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -587,55 +531,25 @@ blur-[120px]
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
-                    Total Regions
-                  </p>
-
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
-                    {analytics.total}
-                  </h3>
-
-                </div>
-
-                <div className="
-w-14
-h-14
-rounded-2xl
-bg-orange-500/10
-flex
-items-center
-justify-center
-text-orange-500
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
 ">
-
-                  <Globe size={24} />
-
-                </div>
-
-              </div>
-
-            </motion.div>
-
-            <motion.div
-
-              whileHover={{
-                y: -4,
-              }}
-
-              className={`${glassCard} rounded-[2rem] p-6`}
-            >
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
-                    Active Nodes
+                    Total Cities
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
-                    {analytics.active}
-                  </h3>
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+                    {analytics.total}
+                  </h2>
 
                 </div>
 
@@ -644,14 +558,12 @@ w-14
 h-14
 rounded-2xl
 bg-emerald-500/10
+text-emerald-500
 flex
 items-center
 justify-center
-text-emerald-500
 ">
-
-                  <ShieldCheck size={24} />
-
+                  <Globe size={24} />
                 </div>
 
               </div>
@@ -659,40 +571,95 @@ text-emerald-500
             </motion.div>
 
             <motion.div
-
-              whileHover={{
-                y: -4,
-              }}
-
+              whileHover={{ y: -3 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
               <div className="flex items-center justify-between">
 
-                <div className="flex-1">
+                <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black mb-3">
-                    Network Efficiency
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+                    Active Regions
                   </p>
 
-                  <div className="flex items-center justify-between mb-2">
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+                    {analytics.active}
+                  </h2>
 
-                    <span className="text-3xl font-black text-slate-800 dark:text-white">
-                      {analytics.efficiency}%
-                    </span>
+                </div>
 
-                    <Activity
-                      size={18}
-                      className="text-indigo-500"
-                    />
+                <div className="
+w-14
+h-14
+rounded-2xl
+bg-cyan-500/10
+text-cyan-500
+flex
+items-center
+justify-center
+">
+                  <ShieldCheck size={24} />
+                </div>
 
-                  </div>
+              </div>
 
-                  <Progress
-                    value={analytics.efficiency}
-                    className="h-2 bg-slate-200 dark:bg-slate-800"
-                  />
+            </motion.div>
 
+            <motion.div
+              whileHover={{ y: -3 }}
+              className={`${glassCard} rounded-[2rem] p-6`}
+            >
+
+              <div className="flex items-center justify-between">
+
+                <div>
+
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+                    Disabled Nodes
+                  </p>
+
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+                    {analytics.inactive}
+                  </h2>
+
+                </div>
+
+                <div className="
+w-14
+h-14
+rounded-2xl
+bg-orange-500/10
+text-orange-500
+flex
+items-center
+justify-center
+">
+                  <Activity size={24} />
                 </div>
 
               </div>
@@ -702,121 +669,159 @@ text-emerald-500
           </div>
 
           {/* ========================================= */}
-          {/* MAIN TABLE */}
+          {/* TABLE */}
           {/* ========================================= */}
 
           <motion.div
 
             initial={{
               opacity: 0,
-              y: 40,
+              y: 30
             }}
 
             animate={{
               opacity: 1,
-              y: 0,
+              y: 0
             }}
 
             transition={{
-              duration: 0.8,
-            }}
-
-            whileHover={{
-              y: -2,
+              duration: 0.8
             }}
 
             className={`${glassCard} rounded-[2.5rem] overflow-hidden`}
           >
 
-            {/* HEADER */}
+            {/* TOP BAR */}
 
             <div className="
-p-8
+p-6
 border-b
-border-white/10
+border-slate-200
+dark:border-slate-800
 flex
+flex-col
+lg:flex-row
+lg:items-center
 justify-between
-items-center
-bg-slate-50
-dark:bg-slate-900/10
+gap-4
+bg-white/60
+dark:bg-slate-900/40
 backdrop-blur-xl
 ">
 
-              <div className="flex items-center gap-4">
+              <div>
 
-                <div className="
-p-3
-rounded-2xl
-bg-gradient-to-br
-from-indigo-500
-to-indigo-700
-text-white
-shadow-xl
-shadow-indigo-500/20
+                <h3 className="
+text-lg
+font-black
+text-slate-800
+dark:text-white
+tracking-tight
 ">
+                  City Command Center
+                </h3>
 
-                  <BarChart3 size={20} />
-
-                </div>
-
-                <div>
-
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-white">
-                    City Directory
-                  </h3>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Active regional mesh infrastructure
-                  </p>
-
-                </div>
+                <p className="
+text-sm
+text-slate-500
+dark:text-slate-400
+mt-1
+">
+                  Live infrastructure node management
+                </p>
 
               </div>
 
-              <Button
+              <div className="
+flex
+items-center
+gap-3
+">
 
-                onClick={handleOpenModal}
+                <div className="relative w-72">
 
-                disabled={loading}
+                  <Search
+                    className="
+absolute
+left-3
+top-1/2
+-translate-y-1/2
+w-4
+h-4
+text-slate-400
+"
+                  />
 
-                className="
+                  <Input
+                    className="
+pl-10
+h-11
 rounded-2xl
-h-12
-px-6
-bg-orange-500
-hover:bg-orange-600
-text-white
-font-black
-shadow-xl
-shadow-orange-500/20
+border-slate-200
+dark:border-slate-700
+bg-white/70
+dark:bg-slate-900/50
+backdrop-blur-xl
+transition-all
+duration-300
+focus-visible:ring-2
+focus-visible:ring-emerald-500/20
+"
+                    placeholder="Search cities..."
+                    value={searchTerm}
+                    onChange={(e) =>
+                      setSearchTerm(e.target.value)
+                    }
+                  />
+
+                </div>
+
+                <Button
+                  onClick={handleOpenModal}
+                  disabled={loading}
+                  className="
+h-11
+rounded-2xl
+px-5
+font-bold
+gap-2
+bg-emerald-600
+hover:bg-emerald-700
+shadow-lg
+shadow-emerald-500/20
 transition-all
 duration-500
-hover:scale-105
-active:scale-95
+hover:scale-[1.02]
 "
+                >
 
-              >
+                  <Plus size={18} />
 
-                <Plus size={18} className="mr-2" />
+                  Initialize City
 
-                Register Node
+                </Button>
 
-                <ArrowRight size={16} className="ml-2" />
-
-              </Button>
+              </div>
 
             </div>
 
             {/* TABLE */}
 
-            <div className="overflow-hidden">
+            <div className="p-4">
 
-              <DataTable
-                columns={columns}
-                data={paginatedCities}
-                loading={loading}
-                emptyMessage="No regional nodes established"
-              />
+              {loading ? (
+
+                <TableSkeleton rows={6} />
+
+              ) : (
+
+                <DataTable
+                  columns={columns}
+                  data={paginatedCities}
+                  emptyMessage="No regional nodes established"
+                />
+
+              )}
 
             </div>
 
@@ -849,19 +854,19 @@ dark:text-slate-400
 
                 Showing
                 {" "}
-                {(currentPage - 1) * pageSize + 1}
+                {(currentPage - 1) * itemsPerPage + 1}
 
                 {" - "}
 
                 {Math.min(
-                  currentPage * pageSize,
-                  cities.length
+                  currentPage * itemsPerPage,
+                  filteredCities.length
                 )}
 
                 {" "}
                 of
                 {" "}
-                {cities.length}
+                {filteredCities.length}
 
               </div>
 
@@ -870,23 +875,17 @@ dark:text-slate-400
               <div className="flex items-center gap-3">
 
                 <Button
-
                   size="sm"
-
                   variant="outline"
-
                   disabled={currentPage === 1}
-
                   onClick={() =>
                     setCurrentPage(prev => prev - 1)
                   }
-
                   className="
 rounded-xl
 border-slate-200
 dark:border-slate-700
 "
-
                 >
 
                   Prev
@@ -897,40 +896,35 @@ dark:border-slate-700
 px-4
 py-2
 rounded-xl
-bg-orange-500
+bg-emerald-600
 text-white
 text-sm
 font-black
 shadow-lg
-shadow-orange-500/20
+shadow-emerald-500/20
 ">
 
                   {currentPage}
                   {" / "}
-                  {totalPages}
+                  {totalPages || 1}
 
                 </div>
 
                 <Button
-
                   size="sm"
-
                   variant="outline"
-
                   disabled={
-                    currentPage === totalPages
+                    currentPage === totalPages ||
+                    totalPages === 0
                   }
-
                   onClick={() =>
                     setCurrentPage(prev => prev + 1)
                   }
-
                   className="
 rounded-xl
 border-slate-200
 dark:border-slate-700
 "
-
                 >
 
                   Next
@@ -951,198 +945,175 @@ dark:border-slate-700
       {/* MODAL */}
       {/* ========================================= */}
 
-      <Modal
+      {modalOpen && (
 
-        isOpen={modalOpen}
-
-        onClose={() => setModalOpen(false)}
-
-        title={
-          selectedCity
-            ? 'Modify Regional Node'
-            : 'Initialize Regional Node'
-        }
-
-      >
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-6 py-4"
+        <Modal
+          isOpen
+          onClose={() => setModalOpen(false)}
+          title={
+            selectedCity
+              ? 'Modify Regional Node'
+              : 'Initialize Regional Node'
+          }
+          size="md"
         >
 
-          <div className="space-y-2">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+          >
 
-            <Label className="
-text-[10px]
-font-black
+            <div className="space-y-2">
+
+              <Label className="
+text-[11px]
 uppercase
 tracking-[0.25em]
 text-slate-500
+font-black
 flex
 items-center
 gap-2
 ">
 
-              <MapPin size={14} />
+                <MapPin size={14} />
 
-              City Designation
+                City Designation
 
-            </Label>
+              </Label>
 
-            <Input
-
-              className="
-h-12
+              <Input
+                className="
 rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
+h-11
 "
+                placeholder="e.g. Islamabad"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData(p => ({
+                    ...p,
+                    name: e.target.value
+                  }))
+                }
+                required
+              />
 
-              placeholder="e.g. Islamabad"
+            </div>
 
-              value={formData.name}
+            <div className="space-y-2">
 
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  name: e.target.value
-                })
-              }
-
-              required
-
-            />
-
-          </div>
-
-          <div className="space-y-2">
-
-            <Label className="
-text-[10px]
-font-black
+              <Label className="
+text-[11px]
 uppercase
 tracking-[0.25em]
 text-slate-500
+font-black
 flex
 items-center
 gap-2
 ">
 
-              <Hash size={14} />
+                <Hash size={14} />
 
-              Identification Code
+                Identification Code
 
-            </Label>
+              </Label>
 
-            <Input
-
-              className="
-h-12
+              <Input
+                className="
 rounded-2xl
+h-11
 font-mono
-tracking-[0.2em]
+tracking-[0.15em]
+uppercase
+"
+                placeholder="e.g. ISB"
+                value={formData.code}
+                onChange={(e) =>
+                  setFormData(p => ({
+                    ...p,
+                    code: e.target.value.toUpperCase()
+                  }))
+                }
+                required
+              />
+
+            </div>
+
+            {/* ACTIONS */}
+
+            <div className="
+flex
+justify-end
+gap-3
+pt-5
+border-t
 border-slate-200
-dark:border-slate-700
-focus-visible:ring-indigo-500
-"
+dark:border-slate-800
+">
 
-              placeholder="e.g. ISB"
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setModalOpen(false)}
+                className="rounded-2xl"
+              >
 
-              value={formData.code}
+                Cancel
 
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  code: e.target.value
-                })
-              }
+              </Button>
 
-              required
-
-            />
-
-          </div>
-
-          <div className="flex gap-4 pt-4">
-
-            <Button
-
-              type="button"
-
-              variant="outline"
-
-              onClick={() => setModalOpen(false)}
-
-              className="
-flex-1
-h-12
+              <Button
+                disabled={formLoading}
+                type="submit"
+                className="
+min-w-[160px]
 rounded-2xl
+bg-emerald-600
+hover:bg-emerald-700
 "
+              >
 
-              disabled={formLoading}
+                {formLoading ? (
 
-            >
+                  <Loader2 className="animate-spin" />
 
-              Cancel
+                ) : selectedCity ? (
 
-            </Button>
+                  'Apply Changes'
 
-            <Button
+                ) : (
 
-              type="submit"
+                  'Create City'
 
-              disabled={formLoading}
+                )}
 
-              className="
-flex-1
-h-12
-rounded-2xl
-bg-orange-500
-hover:bg-orange-600
-text-white
-font-bold
-shadow-xl
-shadow-orange-500/20
-"
+              </Button>
 
-            >
+            </div>
 
-              {formLoading
-                ? 'Processing...'
-                : selectedCity
-                  ? 'Apply Changes'
-                  : 'Confirm Registration'}
+          </form>
 
-            </Button>
+        </Modal>
 
-          </div>
-
-        </form>
-
-      </Modal>
+      )}
 
       {/* ========================================= */}
       {/* CONFIRM */}
       {/* ========================================= */}
 
       <ConfirmDialog
-
         isOpen={confirmOpen}
-
         onClose={() => setConfirmOpen(false)}
-
         onConfirm={handleConfirmToggle}
-
         title="Deactivate Regional Node"
-
         message={`Warning: Deactivating ${selectedCity?.name} will restrict operational activities in this region. Continue?`}
-
       />
 
     </DashboardLayout>
 
   );
+
 };
 
 export default Cities;

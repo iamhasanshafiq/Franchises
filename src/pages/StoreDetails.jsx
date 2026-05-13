@@ -15,6 +15,8 @@ import axios from "axios";
 
 import { toast } from "sonner";
 
+import TableSkeleton from "../components/common/TableSkeleton";
+
 import {
   Store,
   ArrowUpCircle,
@@ -25,21 +27,17 @@ import {
   Loader2,
   RefreshCw,
   X,
-  ArrowLeft,
   Wallet,
   Activity,
-  Globe,
-  BarChart3,
-  Settings2,
+  Radar,
+  Trash2,
+  Save,
   Sparkles,
-  ChevronLeft,
-  ChevronRight,
-  Edit3,
+  ArrowLeft
 } from "lucide-react";
 
 import { motion } from "framer-motion";
 
-import TableSkeleton from "../components/common/TableSkeleton";
 import Header from "../components/common/Header";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import StatusBadge from "../components/common/StatusBadge";
@@ -89,21 +87,36 @@ export default function StoreDetail() {
 
   const location = useLocation();
 
-  const { isAdmin } = useAuth();
+  const {
+    isAdmin,
+    isFranchiseAdmin,
+  } = useAuth();
 
-  const walletApi = useMemo(() => axios.create({
-    baseURL: WALLET_BASE,
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-    },
-  }), []);
+  // =========================================
+  // API
+  // =========================================
 
-  const storeApi = useMemo(() => axios.create({
-    baseURL: STORE_BASE,
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-    },
-  }), []);
+  const walletApi = useMemo(() =>
+    axios.create({
+      baseURL: WALLET_BASE,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+    }),
+  []);
+
+  const storeApi = useMemo(() =>
+    axios.create({
+      baseURL: STORE_BASE,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+    }),
+  []);
+
+  // =========================================
+  // STATE
+  // =========================================
 
   const [tab, setTab] = useState("info");
 
@@ -151,28 +164,26 @@ export default function StoreDetail() {
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const transactionsPerPage = 6;
-
-  const paginatedTransactions = useMemo(() => {
-
-    const transactions =
-      wallet?.transactions || [];
-
-    const start =
-      (currentPage - 1) *
-      transactionsPerPage;
-
-    return transactions.slice(
-      start,
-      start + transactionsPerPage
-    );
-
-  }, [wallet, currentPage]);
+  const transactionsPerPage = 8;
 
   const totalPages = Math.ceil(
     (wallet?.transactions?.length || 0) /
     transactionsPerPage
   );
+
+  const paginatedTransactions = useMemo(() => {
+
+    if (!wallet?.transactions) return [];
+
+    const start =
+      (currentPage - 1) * transactionsPerPage;
+
+    return wallet.transactions.slice(
+      start,
+      start + transactionsPerPage
+    );
+
+  }, [wallet, currentPage]);
 
   // =========================================
   // LOAD STORE
@@ -184,9 +195,7 @@ export default function StoreDetail() {
 
     try {
 
-      const res = await storeApi.get(
-        `/stores/${id}`
-      );
+      const res = await storeApi.get(`/stores/${id}`);
 
       setStore(res.data?.data);
 
@@ -194,9 +203,7 @@ export default function StoreDetail() {
 
     } catch (e) {
 
-      toast.error(
-        "Failed to load store details"
-      );
+      toast.error("Failed to load store details");
 
     } finally {
 
@@ -226,15 +233,14 @@ export default function StoreDetail() {
 
       if (e.response?.status === 404) {
 
-        const created =
-          await walletApi.post(
-            "/wallets",
-            {
-              ownerId: id,
-              ownerType: "STORE",
-              currency: "PKR",
-            }
-          );
+        const created = await walletApi.post(
+          "/wallets",
+          {
+            ownerId: id,
+            ownerType: "STORE",
+            currency: "PKR",
+          }
+        );
 
         setWallet(created.data?.data);
 
@@ -259,7 +265,7 @@ export default function StoreDetail() {
   }, [id, walletApi]);
 
   // =========================================
-  // INITIAL LOAD
+  // INIT
   // =========================================
 
   useEffect(() => {
@@ -279,6 +285,31 @@ export default function StoreDetail() {
   ]);
 
   // =========================================
+  // ANALYTICS
+  // =========================================
+
+  const analytics = useMemo(() => {
+
+    const balance =
+      wallet?.balance || 0;
+
+    const totalTransactions =
+      wallet?.transactions?.length || 0;
+
+    const credits =
+      wallet?.transactions?.filter(
+        t => t.type === "CREDIT"
+      ).length || 0;
+
+    return {
+      balance,
+      totalTransactions,
+      credits,
+    };
+
+  }, [wallet]);
+
+  // =========================================
   // UPDATE STORE
   // =========================================
 
@@ -286,12 +317,22 @@ export default function StoreDetail() {
 
     try {
 
-      await storeApi.patch(
+      console.log(
+        "Updating Store ID:",
+        id
+      );
+
+      const res = await storeApi.patch(
         `/stores/${id}`,
         {
           name: store?.name,
           address: store?.address,
         }
+      );
+
+      console.log(
+        "Update Response:",
+        res.data
       );
 
       toast.success(
@@ -304,6 +345,11 @@ export default function StoreDetail() {
 
     } catch (e) {
 
+      console.error(
+        "Update Error:",
+        e.response?.data || e.message
+      );
+
       toast.error(
         e.response?.data?.message ||
         "Update failed"
@@ -314,7 +360,7 @@ export default function StoreDetail() {
   };
 
   // =========================================
-  // CREDIT WALLET
+  // CREDIT
   // =========================================
 
   const handleCredit = async () => {
@@ -323,11 +369,9 @@ export default function StoreDetail() {
       !creditAmount ||
       parseFloat(creditAmount) <= 0
     ) {
-
       return toast.error(
         "Enter a valid amount"
       );
-
     }
 
     setIsSubmitting(true);
@@ -340,14 +384,10 @@ export default function StoreDetail() {
           amount: parseFloat(
             creditAmount
           ),
-
           reason: creditReason,
-
           currency: "PKR",
-
           referenceId:
             `STORE-REF-${Date.now()}`,
-
           idempotencyKey:
             `credit-store-${id}-${Date.now()}`,
         }
@@ -468,51 +508,6 @@ export default function StoreDetail() {
   };
 
   // =========================================
-  // ANALYTICS
-  // =========================================
-
-  const analytics = useMemo(() => {
-
-    return {
-
-      balance:
-        wallet?.balance || 0,
-
-      transactions:
-        wallet?.transactions
-          ?.length || 0,
-
-      status:
-        wallet?.isActive
-          ? "ACTIVE"
-          : "LOCKED",
-
-      health:
-        wallet?.isActive
-          ? 92
-          : 35,
-    };
-
-  }, [wallet]);
-
-  // =========================================
-  // GLASS CARD
-  // =========================================
-
-  const glassCard = `
-bg-white
-dark:bg-slate-900/70
-backdrop-blur-2xl
-border
-border-slate-200
-dark:border-slate-800
-shadow-[0_10px_40px_rgba(0,0,0,0.06)]
-dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]
-transition-all
-duration-500
-`;
-
-  // =========================================
   // LOADING
   // =========================================
 
@@ -524,21 +519,25 @@ duration-500
 
         <div className="
 min-h-screen
-flex
-items-center
-justify-center
-bg-[#03140F]
+bg-gradient-to-br
+from-slate-50
+via-white
+to-slate-100
+dark:from-[#03140F]
+dark:via-[#041B15]
+dark:to-[#020617]
 ">
 
-          <div className="
-w-14
-h-14
-rounded-full
-border-4
-border-orange-500/20
-border-t-orange-500
-animate-spin
-" />
+          <Header
+            title="Hub Command Center"
+            subtitle="Loading hub infrastructure..."
+          />
+
+          <div className="p-6">
+
+            <TableSkeleton rows={6} />
+
+          </div>
 
         </div>
 
@@ -547,6 +546,23 @@ animate-spin
     );
 
   }
+
+  // =========================================
+  // GLASS CARD
+  // =========================================
+
+  const glassCard = `
+bg-white/80
+dark:bg-slate-900/70
+backdrop-blur-2xl
+border
+border-slate-200
+dark:border-slate-800
+shadow-[0_10px_40px_rgba(0,0,0,0.06)]
+dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]
+transition-all
+duration-500
+`;
 
   return (
 
@@ -566,377 +582,248 @@ duration-500
 ">
 
         <Header
-          title="Hub Intelligence Center"
-          subtitle="Advanced operational monitoring & financial infrastructure"
+          title="Hub Command Center"
+          subtitle="Advanced franchise operations"
         />
 
         <motion.div
 
           initial={{
             opacity: 0,
-            scale: 1.02,
-            filter: "blur(12px)",
+            y: 20,
           }}
 
           animate={{
             opacity: 1,
-            scale: 1,
-            filter: "blur(0px)",
+            y: 0,
           }}
 
           transition={{
-            duration: 1,
-            ease: [0.22, 1, 0.36, 1],
+            duration: 0.7,
           }}
 
           className="
+p-6
+lg:p-8
+space-y-8
+max-w-[1600px]
+mx-auto
 relative
 overflow-hidden
-p-8
-max-w-[1700px]
-mx-auto
-space-y-8
 "
 
         >
 
-          {/* BACKGROUND */}
+          {/* BG EFFECT */}
 
-          <div className="absolute inset-0 -z-10 overflow-hidden">
+          <div className="
+absolute
+inset-0
+overflow-hidden
+pointer-events-none
+-z-10
+">
 
             <div className="
-absolute inset-0
-bg-[radial-gradient(#0f172a12_1px,transparent_1px)]
-dark:bg-[radial-gradient(#ffffff08_1px,transparent_1px)]
-[background-size:24px_24px]
-opacity-40
-" />
-
-            <motion.div
-
-              animate={{
-                y: [0, -30, 0],
-                x: [0, 20, 0],
-              }}
-
-              transition={{
-                duration: 10,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-
-              className="
 absolute
 top-[-10%]
 left-[-10%]
-w-[500px]
-h-[500px]
-bg-orange-500/10
-rounded-full
-blur-[120px]
-"
-
-            />
-
-            <motion.div
-
-              animate={{
-                y: [0, 40, 0],
-                x: [0, -20, 0],
-              }}
-
-              transition={{
-                duration: 14,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-
-              className="
-absolute
-bottom-[-10%]
-right-[-10%]
-w-[500px]
-h-[500px]
+w-[420px]
+h-[420px]
 bg-indigo-500/10
 rounded-full
 blur-[120px]
-"
+" />
 
-            />
+            <div className="
+absolute
+bottom-[-10%]
+right-[-10%]
+w-[420px]
+h-[420px]
+bg-emerald-500/10
+rounded-full
+blur-[120px]
+" />
 
           </div>
+{/* ========================================= */}
+{/* BACK BUTTON */}
+{/* ========================================= */}
 
-          {/* TOP BAR */}
+<motion.div
+  initial={{
+    opacity: 0,
+    x: -20,
+  }}
+  animate={{
+    opacity: 1,
+    x: 0,
+  }}
+>
 
-          <div className="
+  <Button
+    variant="outline"
+    onClick={() => navigate(-1)}
+    className="
+h-12
+px-5
+rounded-2xl
+border-slate-200
+dark:border-slate-700
+bg-white/70
+dark:bg-slate-900/60
+backdrop-blur-xl
+hover:bg-white
+hover:text-slate-800
+dark:hover:bg-slate-800
+shadow-sm
+flex
+items-center
+gap-2
+font-bold
+"
+  >
+
+    <ArrowLeft size={18} />
+
+    Back
+
+  </Button>
+
+</motion.div>
+          {/* ========================================= */}
+          {/* HERO */}
+          {/* ========================================= */}
+
+          <motion.div
+            whileHover={{
+              y: -3,
+            }}
+            className={`${glassCard} rounded-[2.5rem] p-8`}
+          >
+
+            <div className="
 flex
 flex-col
 xl:flex-row
 justify-between
-gap-6
+gap-8
 ">
 
-            {/* LEFT */}
-
-            <motion.div
-
-              whileHover={{
-                y: -4,
-              }}
-
-              className={`
-${glassCard}
-flex-1
-rounded-[2.5rem]
-p-8
-`}
-
-            >
+              {/* LEFT */}
 
               <div className="
 flex
-flex-col
-lg:flex-row
-justify-between
-gap-6
+items-start
+gap-5
 ">
 
-                <div className="flex gap-5">
-
-                  <div className="
+                <div className="
 w-20
 h-20
 rounded-[2rem]
-bg-gradient-to-br
-from-orange-500
-to-orange-600
-text-white
+bg-indigo-500/10
+text-indigo-500
 flex
 items-center
 justify-center
-shadow-2xl
-shadow-orange-500/30
+shadow-lg
+shadow-indigo-500/10
 ">
 
-                    <Store size={34} />
+                  <Store size={34} />
 
-                  </div>
+                </div>
 
-                  <div>
+                <div className="space-y-3">
 
-                    <div className="
+                  <div className="
 flex
+flex-wrap
 items-center
 gap-3
-flex-wrap
 ">
 
-                      <h2 className="
+                    <h1 className="
 text-3xl
 font-black
 tracking-tight
 text-slate-800
 dark:text-white
 ">
-                        {store?.name}
-                      </h2>
 
-                      <StatusBadge
-                        status={
-                          store?.status ||
-                          "ACTIVE"
-                        }
-                      />
+                      {store?.name}
 
-                    </div>
+                    </h1>
 
-                    <p className="
-mt-2
-text-sm
-text-slate-500
-dark:text-slate-400
+                    <StatusBadge
+                      status={
+                        store?.status ||
+                        "ACTIVE"
+                      }
+                    />
+
+                  </div>
+
+                  <div className="
 flex
 items-center
 gap-2
+text-slate-500
+dark:text-slate-400
 ">
-                      <MapPin size={15} />
-                      {store?.address}
-                    </p>
 
-                    <div className="
-mt-5
+                    <MapPin size={15} />
+
+                    <span className="text-sm">
+
+                      {store?.address}
+
+                    </span>
+
+                  </div>
+
+                  <div className="
 flex
+items-center
 gap-3
 flex-wrap
 ">
 
-                      <Button
-                        onClick={() =>
-                          navigate(-1)
-                        }
-                        className="
+                    <div className="
+px-4
+py-2
 rounded-2xl
-bg-slate-900
-hover:bg-slate-800
-text-white
-h-11
-px-5
-"
-                      >
+bg-slate-100
+dark:bg-slate-800
+text-xs
+font-black
+tracking-[0.2em]
+uppercase
+text-slate-600
+dark:text-slate-300
+">
 
-                        <ArrowLeft
-                          size={16}
-                          className="mr-2"
-                        />
-
-                        Back
-
-                      </Button>
-
-                      <Button
-                        onClick={() =>
-                          setIsEditMode(
-                            !isEditMode
-                          )
-                        }
-                        className="
-rounded-2xl
-bg-orange-500
-hover:bg-orange-600
-text-white
-h-11
-px-5
-shadow-xl
-shadow-orange-500/20
-"
-                      >
-
-                        <Edit3
-                          size={16}
-                          className="mr-2"
-                        />
-
-                        {isEditMode
-                          ? "Editing Enabled"
-                          : "Enable Edit"}
-
-                      </Button>
+                      Store ID:
+                      {" "}
+                      {store?.localStoreid}
 
                     </div>
 
-                  </div>
-
-                </div>
-
-                {/* WALLET */}
-
-                <div className="
-min-w-[320px]
-rounded-[2rem]
-bg-gradient-to-br
-from-slate-900
-to-slate-800
-text-white
-p-6
-border
-border-white/10
-relative
-overflow-hidden
-">
-
-                  <div className="
-absolute
-top-0
-right-0
-w-40
-h-40
-bg-orange-500/10
-rounded-full
-blur-3xl
-" />
-
-                  <div className="
-relative
-z-10
-">
-
                     <div className="
-flex
-items-center
-justify-between
-">
-
-                      <div>
-
-                        <p className="
-text-[11px]
-uppercase
-tracking-[0.3em]
-text-slate-400
-font-black
-">
-                          Hub Wallet
-                        </p>
-
-                        <h3 className="
-mt-3
-text-4xl
-font-black
-font-mono
-text-emerald-400
-">
-                          PKR
-                        </h3>
-
-                      </div>
-
-                      <div className="
-w-14
-h-14
+px-4
+py-2
 rounded-2xl
 bg-emerald-500/10
-text-emerald-400
-flex
-items-center
-justify-center
-">
-
-                        <Wallet size={24} />
-
-                      </div>
-
-                    </div>
-
-                    <p className="
-mt-4
-text-3xl
-font-black
-font-mono
-">
-
-                      {loadingWallet
-                        ? "Loading..."
-                        : wallet?.balance?.toLocaleString() ||
-                          "0.00"}
-
-                    </p>
-
-                    <div className="
-mt-5
-flex
-items-center
-justify-between
+text-emerald-600
 text-xs
-text-slate-400
+font-black
+tracking-[0.2em]
+uppercase
 ">
 
-                      <span>
-                        Live Financial State
-                      </span>
-
-                      <span>
-                        {analytics.status}
-                      </span>
+                      Live Operations
 
                     </div>
 
@@ -946,22 +833,192 @@ text-slate-400
 
               </div>
 
-            </motion.div>
+              {/* RIGHT */}
 
-          </div>
+              <div className="
+min-w-[320px]
+rounded-[2rem]
+bg-gradient-to-br
+from-slate-900
+to-slate-800
+p-6
+text-white
+relative
+overflow-hidden
+">
 
-          {/* ANALYTICS */}
+                <div className="
+absolute
+top-[-20px]
+right-[-20px]
+w-32
+h-32
+bg-emerald-500/20
+blur-3xl
+rounded-full
+" />
+
+                <div className="
+flex
+items-center
+justify-between
+mb-6
+">
+
+                  <div>
+
+                    <p className="
+text-[10px]
+uppercase
+tracking-[0.25em]
+font-black
+text-slate-400
+mb-2
+">
+
+                      Hub Wallet
+
+                    </p>
+
+                    {loadingWallet ? (
+
+                      <div className="
+w-32
+h-8
+rounded-xl
+bg-white/10
+animate-pulse
+" />
+
+                    ) : (
+
+                      <h2 className="
+text-4xl
+font-black
+font-mono
+text-emerald-400
+">
+
+                        PKR
+                        {" "}
+                        {analytics.balance?.toLocaleString()}
+
+                      </h2>
+
+                    )}
+
+                  </div>
+
+                  <div className="
+w-14
+h-14
+rounded-2xl
+bg-emerald-500/10
+flex
+items-center
+justify-center
+text-emerald-400
+">
+
+                    <Wallet size={28} />
+
+                  </div>
+
+                </div>
+
+                <div className="
+grid
+grid-cols-2
+gap-4
+">
+
+                  <div className="
+rounded-2xl
+bg-white/5
+p-4
+border
+border-white/5
+">
+
+                    <p className="
+text-[10px]
+uppercase
+tracking-[0.2em]
+text-slate-400
+font-black
+mb-2
+">
+
+                      Transactions
+
+                    </p>
+
+                    <h3 className="
+text-2xl
+font-black
+">
+
+                      {analytics.totalTransactions}
+
+                    </h3>
+
+                  </div>
+
+                  <div className="
+rounded-2xl
+bg-white/5
+p-4
+border
+border-white/5
+">
+
+                    <p className="
+text-[10px]
+uppercase
+tracking-[0.2em]
+text-slate-400
+font-black
+mb-2
+">
+
+                      Credits
+
+                    </p>
+
+                    <h3 className="
+text-2xl
+font-black
+">
+
+                      {analytics.credits}
+
+                    </h3>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </motion.div>
+
+          {/* ========================================= */}
+          {/* STATS */}
+          {/* ========================================= */}
 
           <div className="
 grid
 grid-cols-1
-md:grid-cols-2
-xl:grid-cols-4
+md:grid-cols-3
 gap-6
 ">
 
             <motion.div
-              whileHover={{ y: -5 }}
+              whileHover={{
+                y: -3,
+              }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -974,24 +1031,90 @@ justify-between
                 <div>
 
                   <p className="
-text-xs
+text-[11px]
+font-black
 uppercase
 tracking-[0.25em]
 text-slate-500
-font-black
+mb-2
 ">
-                    Transactions
+
+                    Wallet Balance
+
                   </p>
 
-                  <h3 className="
+                  <h2 className="
 text-3xl
 font-black
-mt-2
 text-slate-800
 dark:text-white
 ">
-                    {analytics.transactions}
-                  </h3>
+
+                    PKR
+                    {" "}
+                    {analytics.balance?.toLocaleString()}
+
+                  </h2>
+
+                </div>
+
+                <div className="
+w-14
+h-14
+rounded-2xl
+bg-emerald-500/10
+text-emerald-500
+flex
+items-center
+justify-center
+">
+
+                  <Wallet size={24} />
+
+                </div>
+
+              </div>
+
+            </motion.div>
+
+            <motion.div
+              whileHover={{
+                y: -3,
+              }}
+              className={`${glassCard} rounded-[2rem] p-6`}
+            >
+
+              <div className="
+flex
+items-center
+justify-between
+">
+
+                <div>
+
+                  <p className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+">
+
+                    Financial Logs
+
+                  </p>
+
+                  <h2 className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+">
+
+                    {analytics.totalTransactions}
+
+                  </h2>
 
                 </div>
 
@@ -1000,10 +1123,10 @@ w-14
 h-14
 rounded-2xl
 bg-indigo-500/10
+text-indigo-500
 flex
 items-center
 justify-center
-text-indigo-500
 ">
 
                   <History size={24} />
@@ -1015,7 +1138,9 @@ text-indigo-500
             </motion.div>
 
             <motion.div
-              whileHover={{ y: -5 }}
+              whileHover={{
+                y: -3,
+              }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -1028,78 +1153,28 @@ justify-between
                 <div>
 
                   <p className="
-text-xs
+text-[11px]
+font-black
 uppercase
 tracking-[0.25em]
 text-slate-500
-font-black
+mb-2
 ">
-                    Wallet Health
+
+                    Hub Status
+
                   </p>
 
-                  <h3 className="
+                  <h2 className="
 text-3xl
 font-black
-mt-2
 text-slate-800
 dark:text-white
 ">
-                    {analytics.health}%
-                  </h3>
 
-                </div>
+                    {store?.status}
 
-                <div className="
-w-14
-h-14
-rounded-2xl
-bg-emerald-500/10
-flex
-items-center
-justify-center
-text-emerald-500
-">
-
-                  <Activity size={24} />
-
-                </div>
-
-              </div>
-
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -5 }}
-              className={`${glassCard} rounded-[2rem] p-6`}
-            >
-
-              <div className="
-flex
-items-center
-justify-between
-">
-
-                <div>
-
-                  <p className="
-text-xs
-uppercase
-tracking-[0.25em]
-text-slate-500
-font-black
-">
-                    Network State
-                  </p>
-
-                  <h3 className="
-text-2xl
-font-black
-mt-2
-text-slate-800
-dark:text-white
-">
-                    Stable
-                  </h3>
+                  </h2>
 
                 </div>
 
@@ -1108,67 +1183,13 @@ w-14
 h-14
 rounded-2xl
 bg-orange-500/10
-flex
-items-center
-justify-center
 text-orange-500
-">
-
-                  <Globe size={24} />
-
-                </div>
-
-              </div>
-
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -5 }}
-              className={`${glassCard} rounded-[2rem] p-6`}
-            >
-
-              <div className="
-flex
-items-center
-justify-between
-">
-
-                <div>
-
-                  <p className="
-text-xs
-uppercase
-tracking-[0.25em]
-text-slate-500
-font-black
-">
-                    System Security
-                  </p>
-
-                  <h3 className="
-text-2xl
-font-black
-mt-2
-text-slate-800
-dark:text-white
-">
-                    Protected
-                  </h3>
-
-                </div>
-
-                <div className="
-w-14
-h-14
-rounded-2xl
-bg-rose-500/10
 flex
 items-center
 justify-center
-text-rose-500
 ">
 
-                  <ShieldCheck size={24} />
+                  <Radar size={24} />
 
                 </div>
 
@@ -1178,24 +1199,26 @@ text-rose-500
 
           </div>
 
+          {/* ========================================= */}
           {/* TABS */}
+          {/* ========================================= */}
 
           <Tabs
             value={tab}
             onValueChange={setTab}
-            className="w-full"
+            className="space-y-6"
           >
 
             <TabsList className="
+h-auto
+p-2
+rounded-[1.5rem]
 bg-white/70
 dark:bg-slate-900/60
 backdrop-blur-xl
-rounded-2xl
-p-2
 border
 border-slate-200
 dark:border-slate-800
-h-auto
 flex
 flex-wrap
 gap-2
@@ -1203,217 +1226,143 @@ gap-2
 
               <TabsTrigger
                 value="info"
-                className="rounded-xl px-5 py-3"
+                className="
+rounded-xl
+px-5
+py-2.5
+font-bold
+"
               >
                 Hub Information
               </TabsTrigger>
 
-              <TabsTrigger
-                value="wallet"
-                className="rounded-xl px-5 py-3"
-              >
-                Wallet & Finance
-              </TabsTrigger>
+              {isEditMode && (
 
-              <TabsTrigger
-                value="settings"
-                className="rounded-xl px-5 py-3"
-              >
-                Admin Controls
-              </TabsTrigger>
+                <TabsTrigger
+                  value="wallet"
+                  className="
+rounded-xl
+px-5
+py-2.5
+font-bold
+"
+                >
+                  Wallet & Finance
+                </TabsTrigger>
+
+              )}
+
+              {isEditMode && (
+
+                <TabsTrigger
+                  value="settings"
+                  className="
+rounded-xl
+px-5
+py-2.5
+font-bold
+"
+                >
+                  Admin Controls
+                </TabsTrigger>
+
+              )}
 
             </TabsList>
 
+            {/* ========================================= */}
             {/* INFO */}
+            {/* ========================================= */}
 
-            <TabsContent
-              value="info"
-              className="mt-6"
-            >
+            <TabsContent value="info">
 
               <motion.div
                 initial={{
                   opacity: 0,
-                  y: 30,
+                  y: 20,
                 }}
                 animate={{
                   opacity: 1,
                   y: 0,
                 }}
-                className={`
-${glassCard}
-rounded-[2.5rem]
-overflow-hidden
-`}
+                className={`${glassCard} rounded-[2.5rem] p-8`}
               >
 
                 <div className="
-p-8
-border-b
-border-white/10
 flex
 items-center
-gap-4
-bg-slate-50
-dark:bg-slate-900/10
+justify-between
+mb-8
 ">
-
-                  <div className="
-p-3
-rounded-2xl
-bg-gradient-to-br
-from-indigo-500
-to-indigo-700
-text-white
-shadow-xl
-shadow-indigo-500/20
-">
-
-                    <BarChart3 size={20} />
-
-                  </div>
 
                   <div>
 
-                    <h3 className="
-text-xl
+                    <h2 className="
+text-2xl
 font-black
+tracking-tight
 text-slate-800
 dark:text-white
 ">
-                      Hub Information Matrix
-                    </h3>
+
+                      Hub Details
+
+                    </h2>
 
                     <p className="
-text-xs
+text-sm
 text-slate-500
 dark:text-slate-400
+mt-1
 ">
-                      Infrastructure & location intelligence
+
+                      Operational store configuration
+
                     </p>
+
+                  </div>
+
+                  <div className="
+w-14
+h-14
+rounded-2xl
+bg-indigo-500/10
+text-indigo-500
+flex
+items-center
+justify-center
+">
+
+                    <Sparkles size={24} />
 
                   </div>
 
                 </div>
 
-                <div className="p-8 space-y-6">
-
-                  <div className="
+                <div className="
 grid
 md:grid-cols-2
 gap-6
 ">
 
-                    <div className="space-y-3">
+                  <div className="space-y-2">
 
-                      <Label className="
-text-[10px]
-uppercase
-tracking-[0.25em]
-font-black
-text-slate-500
-">
-                        Store Name
-                      </Label>
-
-                      {isEditMode ? (
-
-                        <Input
-                          className="
-h-14
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-"
-                          value={store?.name ?? ""}
-                          onChange={e =>
-                            setStore(p => ({
-                              ...p,
-                              name:
-                                e.target.value,
-                            }))
-                          }
-                        />
-
-                      ) : (
-
-                        <div className="
-h-14
-rounded-2xl
-bg-slate-100
-dark:bg-slate-800
-flex
-items-center
-px-5
-font-bold
-">
-                          {store?.name}
-                        </div>
-
-                      )}
-
-                    </div>
-
-                    <div className="space-y-3">
-
-                      <Label className="
-text-[10px]
-uppercase
-tracking-[0.25em]
-font-black
-text-slate-500
-">
-                        Local Store ID
-                      </Label>
-
-                      <div className="
-h-14
-rounded-2xl
-bg-slate-100
-dark:bg-slate-800
-flex
-items-center
-px-5
-font-mono
-tracking-[0.15em]
-text-slate-500
-">
-                        {store?.localStoreid}
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  <div className="space-y-3">
-
-                    <Label className="
-text-[10px]
-uppercase
-tracking-[0.25em]
-font-black
-text-slate-500
-">
-                      Full Address
+                    <Label>
+                      Store Name
                     </Label>
 
                     {isEditMode ? (
 
                       <Input
                         className="
-h-14
+h-12
 rounded-2xl
-border-slate-200
-dark:border-slate-700
 "
-                        value={
-                          store?.address ?? ""
-                        }
-                        onChange={e =>
+                        value={store?.name ?? ""}
+                        onChange={(e) =>
                           setStore(p => ({
                             ...p,
-                            address:
-                              e.target.value,
+                            name: e.target.value,
                           }))
                         }
                       />
@@ -1421,147 +1370,91 @@ dark:border-slate-700
                     ) : (
 
                       <div className="
-h-14
+h-12
 rounded-2xl
 bg-slate-100
 dark:bg-slate-800
+px-4
 flex
 items-center
-px-5
+text-sm
+font-bold
 ">
-                        {store?.address}
+
+                        {store?.name}
+
                       </div>
 
                     )}
 
                   </div>
 
-                  <div className="
-grid
-md:grid-cols-2
-gap-6
-">
+                  <div className="space-y-2">
 
-                    <div className="space-y-3">
+                    <Label>
+                      Local Store ID
+                    </Label>
 
-                      <Label className="
-text-[10px]
-uppercase
-tracking-[0.25em]
-font-black
-text-slate-500
-">
-                        Latitude
-                      </Label>
-
-                      <div className="
-h-14
+                    <div className="
+h-12
 rounded-2xl
 bg-slate-100
 dark:bg-slate-800
+px-4
 flex
 items-center
-px-5
 font-mono
-">
-                        {store?.latitude}
-                      </div>
-
-                    </div>
-
-                    <div className="space-y-3">
-
-                      <Label className="
-text-[10px]
-uppercase
-tracking-[0.25em]
-font-black
+text-sm
 text-slate-500
 ">
-                        Longitude
-                      </Label>
 
-                      <div className="
-h-14
-rounded-2xl
-bg-slate-100
-dark:bg-slate-800
-flex
-items-center
-px-5
-font-mono
-">
-                        {store?.longitude}
-                      </div>
+                      {store?.localStoreid}
 
                     </div>
 
                   </div>
 
-                  {isEditMode && (
+                </div>
 
-                    <div className="
-flex
-gap-4
-pt-6
-border-t
-border-slate-200
-dark:border-slate-800
+                <div className="
+space-y-2
+mt-6
 ">
 
-                      <Button
-                        variant="outline"
-                        className="
+                  <Label>
+                    Full Address
+                  </Label>
+
+                  {isEditMode ? (
+
+                    <Input
+                      className="
 h-12
 rounded-2xl
-px-6
 "
-                        onClick={() => {
+                      value={store?.address ?? ""}
+                      onChange={(e) =>
+                        setStore(p => ({
+                          ...p,
+                          address: e.target.value,
+                        }))
+                      }
+                    />
 
-                          setStore(
-                            originalStore
-                          );
+                  ) : (
 
-                          setIsEditMode(
-                            false
-                          );
-
-                        }}
-                      >
-
-                        <X
-                          size={16}
-                          className="mr-2"
-                        />
-
-                        Cancel
-
-                      </Button>
-
-                      <Button
-                        onClick={
-                          handleUpdateStore
-                        }
-                        className="
+                    <div className="
 h-12
 rounded-2xl
-px-6
-bg-orange-500
-hover:bg-orange-600
-text-white
-shadow-xl
-shadow-orange-500/20
-"
-                      >
+bg-slate-100
+dark:bg-slate-800
+px-4
+flex
+items-center
+text-sm
+">
 
-                        <Sparkles
-                          size={16}
-                          className="mr-2"
-                        />
-
-                        Save Hub Information
-
-                      </Button>
+                      {store?.address}
 
                     </div>
 
@@ -1569,15 +1462,142 @@ shadow-orange-500/20
 
                 </div>
 
+                <div className="
+grid
+md:grid-cols-2
+gap-6
+mt-6
+">
+
+                  <div className="space-y-2">
+
+                    <Label>
+                      Latitude
+                    </Label>
+
+                    <div className="
+h-12
+rounded-2xl
+bg-slate-100
+dark:bg-slate-800
+px-4
+flex
+items-center
+font-mono
+text-sm
+text-slate-500
+">
+
+                      {store?.latitude}
+
+                    </div>
+
+                  </div>
+
+                  <div className="space-y-2">
+
+                    <Label>
+                      Longitude
+                    </Label>
+
+                    <div className="
+h-12
+rounded-2xl
+bg-slate-100
+dark:bg-slate-800
+px-4
+flex
+items-center
+font-mono
+text-sm
+text-slate-500
+">
+
+                      {store?.longitude}
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {isEditMode && (
+
+                  <div className="
+flex
+justify-end
+gap-3
+pt-8
+mt-8
+border-t
+border-slate-200
+dark:border-slate-800
+">
+
+                    <Button
+                      variant="ghost"
+                      className="
+rounded-2xl
+"
+                      onClick={() => {
+
+                        setStore(
+                          originalStore
+                        );
+
+                        setIsEditMode(false);
+
+                        setTab("info");
+
+                      }}
+                    >
+
+                      <X
+                        size={15}
+                        className="mr-2"
+                      />
+
+                      Cancel
+
+                    </Button>
+
+                    <Button
+                      onClick={
+                        handleUpdateStore
+                      }
+                      className="
+rounded-2xl
+bg-indigo-600
+hover:bg-indigo-700
+shadow-lg
+shadow-indigo-500/20
+"
+                    >
+
+                      <Save
+                        size={15}
+                        className="mr-2"
+                      />
+
+                      Save Changes
+
+                    </Button>
+
+                  </div>
+
+                )}
+
               </motion.div>
 
             </TabsContent>
 
+            {/* ========================================= */}
             {/* WALLET */}
+            {/* ========================================= */}
 
             <TabsContent
               value="wallet"
-              className="mt-6 space-y-6"
+              className="space-y-6"
             >
 
               <div className="
@@ -1589,103 +1609,119 @@ gap-6
                 {/* CREDIT */}
 
                 <motion.div
-                  whileHover={{ y: -4 }}
-                  className="
+                  whileHover={{
+                    y: -3,
+                  }}
+                  className={`
 xl:col-span-2
-"
+${glassCard}
+rounded-[2.5rem]
+p-8
+`}
                 >
 
-                  <Card className="
-rounded-[2rem]
-border-slate-200
-dark:border-slate-800
-shadow-xl
-">
-
-                    <CardHeader className="
-border-b
-bg-slate-50/50
-dark:bg-slate-900/20
-rounded-t-[2rem]
-">
-
-                      <CardTitle className="
+                  <div className="
 flex
 items-center
-gap-3
-text-xl
-font-black
+justify-between
+mb-8
 ">
 
-                        <div className="
-p-3
+                    <div>
+
+                      <h2 className="
+text-2xl
+font-black
+tracking-tight
+text-slate-800
+dark:text-white
+">
+
+                        Wallet Credit Engine
+
+                      </h2>
+
+                      <p className="
+text-sm
+text-slate-500
+dark:text-slate-400
+mt-1
+">
+
+                        Secure balance operations
+
+                      </p>
+
+                    </div>
+
+                    <div className="
+w-14
+h-14
 rounded-2xl
 bg-emerald-500/10
 text-emerald-500
+flex
+items-center
+justify-center
 ">
 
-                          <ArrowUpCircle size={20} />
+                      <ArrowUpCircle size={24} />
 
-                        </div>
+                    </div>
 
-                        Credit Hub Wallet
+                  </div>
 
-                      </CardTitle>
+                  {isEditMode ? (
 
-                    </CardHeader>
-
-                    <CardContent className="
-p-8
+                    <div className="
 grid
 md:grid-cols-3
 gap-5
 ">
 
-                      <div className="space-y-3">
+                      <div className="space-y-2">
 
                         <Label>
-                          Top-up Amount
+                          Amount
                         </Label>
 
                         <Input
                           type="number"
-                          className="
-h-14
-rounded-2xl
-"
                           placeholder="0.00"
                           value={creditAmount}
-                          onChange={e =>
+                          onChange={(e) =>
                             setCreditAmount(
                               e.target.value
                             )
                           }
+                          className="
+h-12
+rounded-2xl
+"
                         />
 
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="space-y-2">
 
                         <Label>
-                          Adjustment Reason
+                          Reason
                         </Label>
 
                         <Select
-                          value={
-                            creditReason
-                          }
+                          value={creditReason}
                           onValueChange={
                             setCreditReason
                           }
                         >
 
-                          <SelectTrigger
-                            className="
-h-14
+                          <SelectTrigger className="
+h-12
 rounded-2xl
-"
-                          >
+">
+
                             <SelectValue />
+
                           </SelectTrigger>
 
                           <SelectContent>
@@ -1708,153 +1744,212 @@ rounded-2xl
 
                       </div>
 
-                      <Button
-                        onClick={
-                          handleCredit
-                        }
-                        disabled={
-                          isSubmitting ||
-                          loadingWallet
-                        }
-                        className="
-h-14
-mt-auto
+                      <div className="
+flex
+items-end
+">
+
+                        <Button
+                          onClick={
+                            handleCredit
+                          }
+                          disabled={
+                            isSubmitting ||
+                            loadingWallet
+                          }
+                          className="
+w-full
+h-12
 rounded-2xl
-bg-orange-500
-hover:bg-orange-600
-text-white
-font-black
-shadow-xl
-shadow-orange-500/20
+bg-emerald-600
+hover:bg-emerald-700
+shadow-lg
+shadow-emerald-500/20
 "
-                      >
+                        >
 
-                        {isSubmitting ? (
+                          {isSubmitting ? (
 
-                          <Loader2 className="animate-spin" />
+                            <Loader2 className="
+animate-spin
+" />
 
-                        ) : (
+                          ) : (
 
-                          <>
-                            <Wallet
-                              size={16}
-                              className="mr-2"
-                            />
-                            Apply Credit
-                          </>
+                            <>
+                              <Wallet
+                                size={16}
+                                className="
+mr-2
+"
+                              />
 
-                        )}
+                              Apply Credit
+                            </>
 
-                      </Button>
+                          )}
 
-                    </CardContent>
+                        </Button>
 
-                  </Card>
+                      </div>
+
+                    </div>
+
+                  ) : (
+
+                    <div className="
+h-[180px]
+rounded-[2rem]
+border
+border-dashed
+border-slate-300
+dark:border-slate-700
+flex
+items-center
+justify-center
+text-slate-400
+text-sm
+">
+
+                      Credit operations are available in edit mode only.
+
+                    </div>
+
+                  )}
 
                 </motion.div>
 
                 {/* HEALTH */}
 
                 <motion.div
-                  whileHover={{ y: -4 }}
+                  whileHover={{
+                    y: -3,
+                  }}
+                  className={`${glassCard} rounded-[2.5rem] p-8`}
                 >
 
-                  <Card className="
-rounded-[2rem]
-border-slate-200
-dark:border-slate-800
-shadow-xl
-h-full
+                  <div className="
+flex
+items-center
+justify-between
+mb-8
 ">
 
-                    <CardHeader>
+                    <div>
 
-                      <CardTitle className="
-text-sm
-uppercase
-tracking-[0.25em]
-text-slate-500
+                      <h2 className="
+text-xl
 font-black
+tracking-tight
+text-slate-800
+dark:text-white
 ">
+
                         Wallet Health
-                      </CardTitle>
 
-                    </CardHeader>
+                      </h2>
 
-                    <CardContent className="
+                    </div>
+
+                    <Activity
+                      className="
+text-orange-500
+"
+                      size={24}
+                    />
+
+                  </div>
+
+                  <div className="
 space-y-5
 ">
 
-                      <div className="
+                    <div className="
 flex
-justify-between
 items-center
+justify-between
+pb-4
+border-b
+border-slate-200
+dark:border-slate-800
 ">
 
-                        <span className="
+                      <span className="
 text-sm
 text-slate-500
 ">
-                          Status
-                        </span>
 
-                        <StatusBadge
-                          status={
-                            wallet?.isActive
-                              ? "ACTIVE"
-                              : "LOCKED"
-                          }
-                        />
+                        Status
 
-                      </div>
+                      </span>
 
-                      <div className="
+                      <StatusBadge
+                        status={
+                          wallet?.isActive
+                            ? "ACTIVE"
+                            : "LOCKED"
+                        }
+                      />
+
+                    </div>
+
+                    <div className="
 flex
-justify-between
 items-center
+justify-between
+pb-4
+border-b
+border-slate-200
+dark:border-slate-800
 ">
 
-                        <span className="
+                      <span className="
 text-sm
 text-slate-500
 ">
-                          Currency
-                        </span>
 
-                        <span className="
+                        Currency
+
+                      </span>
+
+                      <span className="
 font-black
 font-mono
 ">
-                          PKR
-                        </span>
 
-                      </div>
+                        PKR
 
-                      <div className="
+                      </span>
+
+                    </div>
+
+                    <div className="
 flex
-justify-between
 items-center
+justify-between
 ">
 
-                        <span className="
+                      <span className="
 text-sm
 text-slate-500
 ">
-                          Last Synced
-                        </span>
 
-                        <span className="
+                        Last Sync
+
+                      </span>
+
+                      <span className="
 text-xs
-font-semibold
+font-medium
 ">
-                          {new Date().toLocaleTimeString()}
-                        </span>
 
-                      </div>
+                        {new Date().toLocaleTimeString()}
 
-                    </CardContent>
+                      </span>
 
-                  </Card>
+                    </div>
+
+                  </div>
 
                 </motion.div>
 
@@ -1865,494 +1960,606 @@ font-semibold
               <motion.div
                 initial={{
                   opacity: 0,
-                  y: 30,
+                  y: 20,
                 }}
                 animate={{
                   opacity: 1,
                   y: 0,
                 }}
+                className={`${glassCard} rounded-[2.5rem] overflow-hidden`}
               >
 
-                <Card className="
-rounded-[2.5rem]
-overflow-hidden
+                {/* TOP */}
+
+                <div className="
+p-6
+border-b
 border-slate-200
 dark:border-slate-800
-shadow-xl
-">
-
-                  <CardHeader className="
 flex
-flex-row
-items-center
+flex-col
+md:flex-row
 justify-between
-border-b
-bg-slate-50/50
-dark:bg-slate-900/20
+gap-4
+bg-white/60
+dark:bg-slate-900/40
+backdrop-blur-xl
 ">
 
-                    <CardTitle className="
-flex
-items-center
-gap-3
-text-lg
+                  <div>
+
+                    <h3 className="
+text-xl
 font-black
+tracking-tight
+text-slate-800
+dark:text-white
 ">
 
-                      <div className="
-p-3
+                      Financial Activity Stream
+
+                    </h3>
+
+                    <p className="
+text-sm
+text-slate-500
+dark:text-slate-400
+mt-1
+">
+
+                      Real-time ledger operations
+
+                    </p>
+
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={loadWalletData}
+                    disabled={loadingWallet}
+                    className="
 rounded-2xl
-bg-indigo-500/10
-text-indigo-500
-">
-
-                        <History size={18} />
-
-                      </div>
-
-                      Financial Ledger
-
-                    </CardTitle>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="
-rounded-xl
+h-11
 "
-                      onClick={
-                        loadWalletData
-                      }
-                    >
-
-                      {loadingWallet ? (
-
-                        <Loader2
-                          size={14}
-                          className="
-mr-2
-animate-spin
-"
-                        />
-
-                      ) : (
-
-                        <RefreshCw
-                          size={14}
-                          className="mr-2"
-                        />
-
-                      )}
-
-                      Refresh
-
-                    </Button>
-
-                  </CardHeader>
-
-                  <CardContent className="p-0">
+                  >
 
                     {loadingWallet ? (
 
-                      <TableSkeleton rows={6} />
+                      <Loader2
+                        size={15}
+                        className="
+animate-spin
+mr-2
+"
+                      />
 
-                    ) : !wallet
-                      ?.transactions
-                      ?.length ? (
+                    ) : (
 
-                      <div className="
-p-20
+                      <RefreshCw
+                        size={15}
+                        className="
+mr-2
+"
+                      />
+
+                    )}
+
+                    Refresh Ledger
+
+                  </Button>
+
+                </div>
+
+                {/* BODY */}
+
+                <div className="p-4">
+
+                  {loadingWallet ? (
+
+                    <TableSkeleton rows={6} />
+
+                  ) : !wallet?.transactions?.length ? (
+
+                    <div className="
+py-24
 text-center
 text-slate-400
 italic
 ">
-                        No financial activity recorded.
-                      </div>
 
-                    ) : (
+                      No financial activity recorded.
 
-                      <>
-                        <div className="
-divide-y
-max-h-[700px]
-overflow-y-auto
+                    </div>
+
+                  ) : (
+
+                    <div className="
+space-y-4
 ">
 
-                          {paginatedTransactions.map(
-                            (tx) => (
+                      {paginatedTransactions.map((tx) => (
 
-                              <div
-                                key={tx.id}
-                                className="
-p-6
+                        <motion.div
+
+                          key={tx.id}
+
+                          whileHover={{
+                            scale: 1.01,
+                          }}
+
+                          className="
 flex
 items-center
 justify-between
-hover:bg-slate-50
-dark:hover:bg-slate-900/30
-transition-colors
+rounded-[1.8rem]
+border
+border-slate-200
+dark:border-slate-800
+bg-white/70
+dark:bg-slate-900/40
+backdrop-blur-xl
+p-5
+transition-all
+duration-300
 "
-                              >
 
-                                <div className="
-flex
-items-center
-gap-5
-">
-
-                                  <div className={`
-p-3
-rounded-2xl
-${tx.type === "CREDIT"
-                                      ? "bg-emerald-100 text-emerald-700"
-                                      : "bg-rose-100 text-rose-700"
-                                    }
-`}>
-
-                                    {tx.type ===
-                                      "CREDIT" ? (
-                                      <ArrowUpCircle size={22} />
-                                    ) : (
-                                      <ArrowDownCircle size={22} />
-                                    )}
-
-                                  </div>
-
-                                  <div>
-
-                                    <p className="
-text-sm
-font-black
-text-slate-800
-dark:text-white
-uppercase
-">
-                                      {tx.reason.replace(
-                                        /_/g,
-                                        " "
-                                      )}
-                                    </p>
-
-                                    <p className="
-text-[11px]
-text-slate-500
-mt-1
-">
-                                      {new Date(
-                                        tx.createdAt
-                                      ).toLocaleString()}
-                                    </p>
-
-                                  </div>
-
-                                </div>
-
-                                <div className="text-right">
-
-                                  <p className={`
-text-lg
-font-black
-font-mono
-${tx.type === "CREDIT"
-                                      ? "text-emerald-500"
-                                      : "text-rose-500"
-                                    }
-`}>
-
-                                    {tx.type ===
-                                      "CREDIT"
-                                      ? "+"
-                                      : "-"}
-
-                                    {" "}
-
-                                    {tx.amount.toLocaleString()}
-
-                                  </p>
-
-                                  <p className="
-text-[10px]
-text-slate-400
-font-mono
-mt-1
-">
-                                    TXID:
-                                    {" "}
-                                    {tx.id.slice(
-                                      0,
-                                      8
-                                    )}
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                            )
-                          )}
-
-                        </div>
-
-                        {/* PAGINATION */}
-
-                        {totalPages > 1 && (
+                        >
 
                           <div className="
 flex
 items-center
-justify-between
-p-5
-border-t
-bg-slate-50/50
-dark:bg-slate-900/20
+gap-4
 ">
 
-                            <p className="
-text-xs
-uppercase
-tracking-[0.25em]
-font-black
-text-slate-500
-">
-                              Page
-                              {" "}
-                              {currentPage}
-                              {" "}
-                              of
-                              {" "}
-                              {totalPages}
-                            </p>
-
-                            <div className="
+                            <div className={`
+w-14
+h-14
+rounded-2xl
 flex
 items-center
-gap-3
+justify-center
+${tx.type === "CREDIT"
+? "bg-emerald-500/10 text-emerald-500"
+: "bg-rose-500/10 text-rose-500"
+}
+`}>
+
+                              {tx.type === "CREDIT" ? (
+
+                                <ArrowUpCircle size={24} />
+
+                              ) : (
+
+                                <ArrowDownCircle size={24} />
+
+                              )}
+
+                            </div>
+
+                            <div>
+
+                              <h4 className="
+font-black
+text-slate-800
+dark:text-white
 ">
 
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={
-                                  currentPage === 1
-                                }
-                                onClick={() =>
-                                  setCurrentPage(
-                                    prev => prev - 1
-                                  )
-                                }
-                                className="
-rounded-xl
-"
-                              >
+                                {tx.reason.replace(
+                                  /_/g,
+                                  " "
+                                )}
 
-                                <ChevronLeft
-                                  size={15}
-                                />
+                              </h4>
 
-                              </Button>
+                              <p className="
+text-xs
+uppercase
+tracking-[0.2em]
+text-slate-400
+mt-1
+">
 
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={
-                                  currentPage ===
-                                  totalPages
-                                }
-                                onClick={() =>
-                                  setCurrentPage(
-                                    prev => prev + 1
-                                  )
-                                }
-                                className="
-rounded-xl
-"
-                              >
+                                {new Date(
+                                  tx.createdAt
+                                ).toLocaleString()}
 
-                                <ChevronRight
-                                  size={15}
-                                />
-
-                              </Button>
+                              </p>
 
                             </div>
 
                           </div>
 
-                        )}
+                          <div className="
+text-right
+">
 
-                      </>
+                            <h3 className={`
+text-xl
+font-black
+font-mono
+${tx.type === "CREDIT"
+? "text-emerald-500"
+: "text-rose-500"
+}
+`}>
 
-                    )}
+                              {tx.type === "CREDIT"
+                                ? "+"
+                                : "-"}
+                              {" "}
+                              {tx.amount.toLocaleString()}
 
-                  </CardContent>
+                            </h3>
 
-                </Card>
+                            <p className="
+text-[10px]
+text-slate-400
+font-mono
+mt-1
+">
+
+                              TXID:
+                              {" "}
+                              {tx.id.slice(0, 8)}
+
+                            </p>
+
+                          </div>
+
+                        </motion.div>
+
+                      ))}
+
+                    </div>
+
+                  )}
+
+                </div>
+
+                {/* PAGINATION */}
+
+                {!!wallet?.transactions?.length && (
+
+                  <div className="
+flex
+flex-col
+md:flex-row
+items-center
+justify-between
+gap-4
+p-5
+border-t
+border-white/5
+bg-slate-50/50
+dark:bg-slate-900/20
+">
+
+                    <div className="
+text-[10px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+dark:text-slate-400
+">
+
+                      Showing
+                      {" "}
+                      {(currentPage - 1) *
+                        transactionsPerPage + 1}
+
+                      {" - "}
+
+                      {Math.min(
+                        currentPage *
+                        transactionsPerPage,
+                        wallet?.transactions
+                          ?.length
+                      )}
+
+                      {" "}
+                      of
+                      {" "}
+                      {
+                        wallet?.transactions
+                          ?.length
+                      }
+
+                    </div>
+
+                    <div className="
+flex
+items-center
+gap-3
+">
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          currentPage === 1
+                        }
+                        onClick={() =>
+                          setCurrentPage(
+                            prev => prev - 1
+                          )
+                        }
+                        className="
+rounded-xl
+"
+                      >
+
+                        Prev
+
+                      </Button>
+
+                      <div className="
+px-4
+py-2
+rounded-xl
+bg-indigo-600
+text-white
+text-sm
+font-black
+shadow-lg
+shadow-indigo-500/20
+">
+
+                        {currentPage}
+                        {" / "}
+                        {totalPages}
+
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          currentPage ===
+                          totalPages
+                        }
+                        onClick={() =>
+                          setCurrentPage(
+                            prev => prev + 1
+                          )
+                        }
+                        className="
+rounded-xl
+"
+                      >
+
+                        Next
+
+                      </Button>
+
+                    </div>
+
+                  </div>
+
+                )}
 
               </motion.div>
 
             </TabsContent>
 
+            {/* ========================================= */}
             {/* SETTINGS */}
+            {/* ========================================= */}
 
-            <TabsContent
-              value="settings"
-              className="mt-6"
-            >
+            <TabsContent value="settings">
 
               <motion.div
-                whileHover={{
-                  y: -3,
+                initial={{
+                  opacity: 0,
+                  y: 20,
                 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                className="
+rounded-[2.5rem]
+border
+border-rose-200/30
+bg-rose-500/5
+backdrop-blur-2xl
+overflow-hidden
+"
               >
 
-                <Card className="
-rounded-[2.5rem]
-overflow-hidden
-border-rose-200
-shadow-xl
-">
-
-                  <CardHeader className="
-bg-gradient-to-r
-from-rose-500/10
-to-orange-500/10
+                <div className="
+p-8
 border-b
+border-rose-200/20
+bg-rose-500/5
 ">
 
-                    <CardTitle className="
+                  <div className="
+flex
+items-center
+justify-between
+">
+
+                    <div>
+
+                      <h2 className="
+text-2xl
+font-black
+tracking-tight
+text-rose-600
 flex
 items-center
 gap-3
-text-xl
-font-black
-text-rose-600
 ">
 
-                      <div className="
-p-3
+                        <ShieldCheck size={24} />
+
+                        Critical Hub Controls
+
+                      </h2>
+
+                      <p className="
+text-sm
+text-slate-500
+mt-2
+">
+
+                        High-impact operational controls
+
+                      </p>
+
+                    </div>
+
+                    <div className="
+w-14
+h-14
 rounded-2xl
 bg-rose-500/10
+text-rose-500
+flex
+items-center
+justify-center
 ">
 
-                        <Settings2 size={20} />
+                      <Trash2 size={24} />
 
-                      </div>
+                    </div>
 
-                      Critical Hub Controls
+                  </div>
 
-                    </CardTitle>
+                </div>
 
-                  </CardHeader>
-
-                  <CardContent className="
+                <div className="
 p-8
 space-y-6
 ">
 
-                    <p className="
+                  {isEditMode ? (
+
+                    <>
+
+                      <p className="
 text-sm
 text-slate-600
 dark:text-slate-400
 leading-relaxed
 ">
-                      Modify the operational state
-                      of this Hub. Changes affect
-                      logistics routing, rider
-                      dispatching and order
-                      allocation instantly across
-                      the network.
-                    </p>
 
-                    <div className="
+                        Modify operational status instantly.
+                        Changes affect routing, order
+                        allocation, and rider visibility.
+
+                      </p>
+
+                      <div className="
 flex
-gap-4
 flex-wrap
+gap-4
 ">
-
-                      <Button
-                        variant="outline"
-                        className="
-rounded-2xl
-h-12
-px-6
-text-emerald-600
-border-emerald-200
-"
-                        disabled={
-                          store?.status ===
-                          "ACTIVE"
-                        }
-                        onClick={() =>
-                          setStatusConfirm({
-                            open: true,
-                            status: "ACTIVE",
-                            label:
-                              "Re-Activate Hub",
-                          })
-                        }
-                      >
-
-                        Re-Activate Hub
-
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        className="
-rounded-2xl
-h-12
-px-6
-text-amber-600
-border-amber-200
-"
-                        disabled={
-                          store?.status ===
-                          "SUSPENDED"
-                        }
-                        onClick={() =>
-                          setStatusConfirm({
-                            open: true,
-                            status:
-                              "SUSPENDED",
-                            label:
-                              "Maintenance Mode",
-                          })
-                        }
-                      >
-
-                        Maintenance Mode
-
-                      </Button>
-
-                      {isAdmin() && (
 
                         <Button
                           variant="outline"
+                          disabled={
+                            store?.status ===
+                            "ACTIVE"
+                          }
+                          onClick={() =>
+                            setStatusConfirm({
+                              open: true,
+                              status: "ACTIVE",
+                              label:
+                                "Re-Activate Hub",
+                            })
+                          }
                           className="
 rounded-2xl
-h-12
-px-6
-text-rose-600
-border-rose-200
+border-emerald-200
+text-emerald-600
+hover:bg-emerald-50
 "
-                          onClick={() =>
-                            setDeleteConfirmOpen(
-                              true
-                            )
-                          }
                         >
 
-                          De-commission Hub
+                          Re-Activate Hub
 
                         </Button>
 
-                      )}
+                        <Button
+                          variant="outline"
+                          disabled={
+                            store?.status ===
+                            "SUSPENDED"
+                          }
+                          onClick={() =>
+                            setStatusConfirm({
+                              open: true,
+                              status:
+                                "SUSPENDED",
+                              label:
+                                "Maintenance Mode",
+                            })
+                          }
+                          className="
+rounded-2xl
+border-orange-200
+text-orange-600
+hover:bg-orange-50
+"
+                        >
+
+                          Maintenance Mode
+
+                        </Button>
+
+                        {isAdmin() && (
+
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              setDeleteConfirmOpen(
+                                true
+                              )
+                            }
+                            className="
+rounded-2xl
+border-rose-200
+text-rose-600
+hover:bg-rose-50
+"
+                          >
+
+                            De-commission Hub
+
+                          </Button>
+
+                        )}
+
+                      </div>
+
+                    </>
+
+                  ) : (
+
+                    <div className="
+h-[160px]
+rounded-[2rem]
+border
+border-dashed
+border-slate-300
+dark:border-slate-700
+flex
+items-center
+justify-center
+text-slate-400
+text-sm
+">
+
+                      Admin controls are available in edit mode only.
 
                     </div>
 
-                  </CardContent>
+                  )}
 
-                </Card>
+                </div>
 
               </motion.div>
 
@@ -2364,7 +2571,9 @@ border-rose-200
 
       </div>
 
-      {/* STATUS CONFIRM */}
+      {/* ========================================= */}
+      {/* CONFIRMATIONS */}
+      {/* ========================================= */}
 
       <ConfirmDialog
         isOpen={statusConfirm.open}
@@ -2378,24 +2587,18 @@ border-rose-200
         onConfirm={handleChangeStatus}
         title={statusConfirm.label}
         message={
-          statusConfirm.status ===
-            "ACTIVE"
+          statusConfirm.status === "ACTIVE"
             ? `Reactivate "${store?.name}"? It will immediately resume accepting orders.`
             : `Put "${store?.name}" into maintenance mode? Order routing will be paused.`
         }
-        confirmText={
-          statusConfirm.label
-        }
+        confirmText={statusConfirm.label}
         variant={
-          statusConfirm.status ===
-            "ACTIVE"
+          statusConfirm.status === "ACTIVE"
             ? "default"
             : "destructive"
         }
         loading={statusLoading}
       />
-
-      {/* DELETE CONFIRM */}
 
       <ConfirmDialog
         isOpen={deleteConfirmOpen}

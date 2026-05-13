@@ -2,7 +2,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useMemo,
+  useMemo
 } from 'react';
 
 import {
@@ -11,13 +11,11 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
+  Search,
+  Loader2,
   Activity,
-  BarChart3,
-  ArrowRight,
-  Lock,
-  Hash,
   Layers3,
+  ShieldCheck
 } from 'lucide-react';
 
 import { motion } from 'framer-motion';
@@ -32,12 +30,20 @@ import TableSkeleton from '../components/common/TableSkeleton';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Progress } from '../components/ui/progress';
 
 import { toast } from '../hooks/use-toast';
 import { rolesApi } from '../api/roles.api';
 
+const INITIAL_FORM = {
+  code: '',
+  name: ''
+};
+
 export default function RolesPage() {
+
+  // =========================================
+  // STATE
+  // =========================================
 
   const [roles, setRoles] = useState([]);
 
@@ -47,19 +53,16 @@ export default function RolesPage() {
     total: 0,
     page: 1,
     limit: 10,
-    totalPages: 1,
+    totalPages: 1
   });
 
   const [page, setPage] = useState(1);
 
-  const [pageLoaded, setPageLoaded] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [createOpen, setCreateOpen] = useState(false);
 
-  const [form, setForm] = useState({
-    code: '',
-    name: '',
-  });
+  const [form, setForm] = useState(INITIAL_FORM);
 
   const [creating, setCreating] = useState(false);
 
@@ -68,7 +71,7 @@ export default function RolesPage() {
   const [deleting, setDeleting] = useState(false);
 
   // =========================================
-  // FETCH ROLES
+  // FETCH
   // =========================================
 
   const fetchRoles = useCallback(async () => {
@@ -96,7 +99,7 @@ export default function RolesPage() {
 
       toast({
         title: 'Failed to load roles',
-        variant: 'destructive',
+        variant: 'destructive'
       });
 
     } finally {
@@ -114,22 +117,6 @@ export default function RolesPage() {
   }, [fetchRoles]);
 
   // =========================================
-  // PAGE LOADER
-  // =========================================
-
-  useEffect(() => {
-
-    const timer = setTimeout(() => {
-
-      setPageLoaded(true);
-
-    }, 250);
-
-    return () => clearTimeout(timer);
-
-  }, []);
-
-  // =========================================
   // ANALYTICS
   // =========================================
 
@@ -137,22 +124,40 @@ export default function RolesPage() {
 
     const total = meta.total || 0;
 
-    const secured = roles?.length || 0;
+    const active = roles?.length || 0;
 
-    const efficiency = total > 0
-      ? Math.round((secured / total) * 100)
-      : 0;
+    const secured = roles?.filter(
+      r => r.code?.includes('ADMIN')
+    ).length || 0;
 
     return {
       total,
-      secured,
-      efficiency,
+      active,
+      secured
     };
 
   }, [roles, meta]);
 
   // =========================================
-  // CREATE ROLE
+  // SEARCH
+  // =========================================
+
+  const filteredRoles = useMemo(() => {
+
+    if (!searchTerm) return roles;
+
+    return roles.filter(role =>
+
+      role.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+
+      role.code?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    );
+
+  }, [roles, searchTerm]);
+
+  // =========================================
+  // CREATE
   // =========================================
 
   const handleCreate = async (e) => {
@@ -166,30 +171,27 @@ export default function RolesPage() {
       await rolesApi.create(form);
 
       toast({
-        title: 'Role created successfully',
+        title: 'Role created successfully'
       });
 
       setCreateOpen(false);
 
-      setForm({
-        code: '',
-        name: '',
-      });
+      setForm(INITIAL_FORM);
 
       fetchRoles();
 
     } catch (err) {
 
       const msg =
-        err.response?.data?.data?.message
-        || err.response?.data?.message
-        || 'Failed to create role';
+        err.response?.data?.data?.message ||
+        err.response?.data?.message ||
+        'Failed to create role';
 
       toast({
         title: Array.isArray(msg)
           ? msg.join(', ')
           : msg,
-        variant: 'destructive',
+        variant: 'destructive'
       });
 
     } finally {
@@ -201,7 +203,7 @@ export default function RolesPage() {
   };
 
   // =========================================
-  // DELETE ROLE
+  // DELETE
   // =========================================
 
   const handleDelete = async () => {
@@ -215,7 +217,7 @@ export default function RolesPage() {
       await rolesApi.delete(deleteTarget.id);
 
       toast({
-        title: 'Role deleted',
+        title: 'Role deleted'
       });
 
       setDeleteTarget(null);
@@ -225,15 +227,15 @@ export default function RolesPage() {
     } catch (err) {
 
       const msg =
-        err.response?.data?.data?.message
-        || err.response?.data?.message
-        || 'Failed to delete role';
+        err.response?.data?.data?.message ||
+        err.response?.data?.message ||
+        'Failed to delete role';
 
       toast({
         title: Array.isArray(msg)
           ? msg.join(', ')
           : msg,
-        variant: 'destructive',
+        variant: 'destructive'
       });
 
     } finally {
@@ -245,142 +247,139 @@ export default function RolesPage() {
   };
 
   // =========================================
-  // TABLE COLUMNS
+  // TABLE
   // =========================================
 
-  const columns = [
+  const columns = useMemo(() => [
 
     {
       key: 'name',
-      label: 'Security Role',
+
+      label: 'Role Identity',
 
       render: (val, row) => (
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 group">
 
-          <div className="
+          <div
+            className="
 w-11
 h-11
 rounded-2xl
-bg-gradient-to-br
-from-yellow-500/20
-to-orange-500/10
+bg-yellow-500/10
+text-yellow-500
 flex
 items-center
 justify-center
-text-yellow-600
-shadow-lg
-shadow-yellow-500/10
-">
+transition-all
+duration-500
+group-hover:scale-110
+group-hover:rotate-6
+"
+          >
 
-            <ShieldCheck size={18} />
+            <Shield size={18} />
 
           </div>
 
           <div>
 
-            <p className="font-black text-slate-700 dark:text-white tracking-tight">
+            <div
+              className="
+font-black
+text-sm
+text-slate-800
+dark:text-white
+tracking-tight
+"
+            >
               {val}
-            </p>
+            </div>
 
-            <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-bold">
-              Access Authority
-            </p>
+            <div
+              className="
+text-xs
+font-mono
+tracking-wide
+text-slate-500
+dark:text-slate-400
+"
+            >
+              {row.code}
+            </div>
 
           </div>
 
         </div>
 
-      ),
+      )
     },
 
     {
       key: 'code',
+
       label: 'Access Code',
 
-      render: (val) => (
+      render: (v) => (
 
-        <code className="
+        <span
+          className="
 px-3
-py-1.5
-rounded-xl
+py-1
+rounded-full
 bg-slate-100
 dark:bg-slate-800
-text-[11px]
-font-mono
+text-[10px]
+font-black
+uppercase
 tracking-[0.2em]
-font-bold
-text-indigo-500
-border
-border-slate-200
-dark:border-slate-700
-">
-          {val}
-        </code>
-
-      ),
-    },
-
-    {
-      key: 'createdAt',
-      label: 'Initialized',
-
-      render: (val) => (
-
-        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-
-          {val
-            ? new Date(val).toLocaleDateString()
-            : '-'}
-
+text-slate-600
+dark:text-slate-300
+"
+        >
+          {v}
         </span>
 
-      ),
+      )
     },
 
     {
       key: 'actions',
-      label: 'Controls',
+
+      label: '',
 
       render: (_, row) => (
 
-        <div className="flex items-center gap-2">
-
-          <Button
-
-            size="sm"
-
-            variant="ghost"
-
-            onClick={() => setDeleteTarget(row)}
-
-            className="
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setDeleteTarget(row)}
+          className="
 rounded-xl
 hover:bg-red-500/10
-hover:text-red-500
 transition-all
 duration-300
 "
+        >
 
-          >
+          <Trash2
+            size={15}
+            className="text-red-500"
+          />
 
-            <Trash2 size={16} />
+        </Button>
 
-          </Button>
+      )
+    }
 
-        </div>
-
-      ),
-    },
-
-  ];
+  ], []);
 
   // =========================================
-  // GLASS STYLE
+  // GLASS CARD
   // =========================================
 
   const glassCard = `
-bg-white
+bg-white/90
 dark:bg-slate-900/70
 backdrop-blur-2xl
 border
@@ -390,46 +389,14 @@ shadow-[0_10px_40px_rgba(0,0,0,0.06)]
 dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]
 transition-all
 duration-500
-hover:shadow-yellow-500/10
 `;
-
-  // =========================================
-  // LOADER
-  // =========================================
-
-  if (!pageLoaded) {
-
-    return (
-
-      <div className="
-min-h-screen
-flex
-items-center
-justify-center
-bg-[#03140F]
-">
-
-        <div className="
-w-14
-h-14
-rounded-full
-border-4
-border-yellow-500/20
-border-t-yellow-500
-animate-spin
-" />
-
-      </div>
-
-    );
-
-  }
 
   return (
 
     <DashboardLayout>
 
-      <div className="
+      <div
+        className="
 min-h-screen
 bg-gradient-to-br
 from-slate-50
@@ -440,100 +407,67 @@ dark:via-[#041B15]
 dark:to-[#020617]
 transition-colors
 duration-500
-">
+"
+      >
 
         <Header
-          title="Role Authority Matrix"
-          subtitle="Configure and manage secure platform access roles"
+          title="Role Management"
+          subtitle="Manage system roles and access permissions"
         />
 
         <motion.div
 
           initial={{
             opacity: 0,
-            scale: 1.02,
-            filter: 'blur(12px)',
+            y: 20
           }}
 
           animate={{
             opacity: 1,
-            scale: 1,
-            filter: 'blur(0px)',
+            y: 0
           }}
 
           transition={{
-            duration: 1,
-            ease: [0.22, 1, 0.36, 1],
+            duration: 0.7
           }}
 
           className="
-relative
-overflow-hidden
-p-8
+p-6
+lg:p-6
+space-y-6
 max-w-[1600px]
 mx-auto
-space-y-8
+relative
+overflow-hidden
 "
         >
 
           {/* ========================================= */}
-          {/* BACKGROUND */}
+          {/* BACKGROUND EFFECTS */}
           {/* ========================================= */}
 
           <div className="absolute inset-0 -z-10 overflow-hidden">
 
-            <div className="
-absolute inset-0
-bg-[radial-gradient(#0f172a12_1px,transparent_1px)]
-dark:bg-[radial-gradient(#ffffff08_1px,transparent_1px)]
-[background-size:24px_24px]
-opacity-40
-" />
-
-            <motion.div
-
-              animate={{
-                y: [0, -30, 0],
-                x: [0, 20, 0],
-              }}
-
-              transition={{
-                duration: 10,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-
+            <div
               className="
 absolute
 top-[-10%]
 left-[-10%]
-w-[500px]
-h-[500px]
+w-[420px]
+h-[420px]
 bg-yellow-500/10
 rounded-full
 blur-[120px]
 "
             />
 
-            <motion.div
-
-              animate={{
-                y: [0, 40, 0],
-                x: [0, -20, 0],
-              }}
-
-              transition={{
-                duration: 14,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-
+            <div
               className="
 absolute
 bottom-[-10%]
 right-[-10%]
-w-[500px]
-h-[500px]
+w-[420px]
+h-[420px]
 bg-orange-500/10
 rounded-full
 blur-[120px]
@@ -543,17 +477,13 @@ blur-[120px]
           </div>
 
           {/* ========================================= */}
-          {/* ANALYTICS */}
+          {/* STATS */}
           {/* ========================================= */}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <motion.div
-
-              whileHover={{
-                y: -4,
-              }}
-
+              whileHover={{ y: -4 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -561,29 +491,45 @@ blur-[120px]
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
+                  <p
+                    className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+"
+                  >
                     Total Roles
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
+                  <h2
+                    className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+"
+                  >
                     {analytics.total}
-                  </h3>
+                  </h2>
 
                 </div>
 
-                <div className="
+                <div
+                  className="
 w-14
 h-14
 rounded-2xl
 bg-yellow-500/10
+text-yellow-500
 flex
 items-center
 justify-center
-text-yellow-500
-">
-
+"
+                >
                   <Layers3 size={24} />
-
                 </div>
 
               </div>
@@ -591,11 +537,7 @@ text-yellow-500
             </motion.div>
 
             <motion.div
-
-              whileHover={{
-                y: -4,
-              }}
-
+              whileHover={{ y: -4 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
@@ -603,29 +545,45 @@ text-yellow-500
 
                 <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black">
-                    Active Authorities
+                  <p
+                    className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+"
+                  >
+                    Loaded Roles
                   </p>
 
-                  <h3 className="text-3xl font-black mt-2 text-slate-800 dark:text-white">
-                    {analytics.secured}
-                  </h3>
+                  <h2
+                    className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+"
+                  >
+                    {analytics.active}
+                  </h2>
 
                 </div>
 
-                <div className="
+                <div
+                  className="
 w-14
 h-14
 rounded-2xl
 bg-emerald-500/10
+text-emerald-500
 flex
 items-center
 justify-center
-text-emerald-500
-">
-
-                  <Shield size={24} />
-
+"
+                >
+                  <Activity size={24} />
                 </div>
 
               </div>
@@ -633,40 +591,53 @@ text-emerald-500
             </motion.div>
 
             <motion.div
-
-              whileHover={{
-                y: -4,
-              }}
-
+              whileHover={{ y: -4 }}
               className={`${glassCard} rounded-[2rem] p-6`}
             >
 
               <div className="flex items-center justify-between">
 
-                <div className="flex-1">
+                <div>
 
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400 font-black mb-3">
-                    Security Coverage
+                  <p
+                    className="
+text-[11px]
+font-black
+uppercase
+tracking-[0.25em]
+text-slate-500
+mb-2
+"
+                  >
+                    Admin Roles
                   </p>
 
-                  <div className="flex items-center justify-between mb-2">
+                  <h2
+                    className="
+text-3xl
+font-black
+text-slate-800
+dark:text-white
+"
+                  >
+                    {analytics.secured}
+                  </h2>
 
-                    <span className="text-3xl font-black text-slate-800 dark:text-white">
-                      {analytics.efficiency}%
-                    </span>
+                </div>
 
-                    <Activity
-                      size={18}
-                      className="text-indigo-500"
-                    />
-
-                  </div>
-
-                  <Progress
-                    value={analytics.efficiency}
-                    className="h-2 bg-slate-200 dark:bg-slate-800"
-                  />
-
+                <div
+                  className="
+w-14
+h-14
+rounded-2xl
+bg-indigo-500/10
+text-indigo-500
+flex
+items-center
+justify-center
+"
+                >
+                  <ShieldCheck size={24} />
                 </div>
 
               </div>
@@ -683,124 +654,154 @@ text-emerald-500
 
             initial={{
               opacity: 0,
-              y: 40,
+              y: 30
             }}
 
             animate={{
               opacity: 1,
-              y: 0,
+              y: 0
             }}
 
             transition={{
-              duration: 0.8,
-            }}
-
-            whileHover={{
-              y: -2,
+              duration: 0.8
             }}
 
             className={`${glassCard} rounded-[2.5rem] overflow-hidden`}
           >
 
-            {/* HEADER */}
+            {/* TOPBAR */}
 
-            <div className="
-p-8
+            <div
+              className="
+p-6
 border-b
-border-white/10
+border-slate-200
+dark:border-slate-800
 flex
+flex-col
+lg:flex-row
+lg:items-center
 justify-between
-items-center
-bg-slate-50
-dark:bg-slate-900/10
+gap-4
+bg-white/60
+dark:bg-slate-900/40
 backdrop-blur-xl
-">
+"
+            >
 
-              <div className="flex items-center gap-4">
+              <div>
 
-                <div className="
-p-3
-rounded-2xl
-bg-gradient-to-br
-from-yellow-500
-to-orange-600
-text-white
-shadow-xl
-shadow-yellow-500/20
-">
+                <h3
+                  className="
+text-lg
+font-black
+text-slate-800
+dark:text-white
+tracking-tight
+"
+                >
+                  Access Control Matrix
+                </h3>
 
-                  <BarChart3 size={20} />
-
-                </div>
-
-                <div>
-
-                  <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-white">
-                    Security Role Directory
-                  </h3>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Centralized access control infrastructure
-                  </p>
-
-                </div>
+                <p
+                  className="
+text-sm
+text-slate-500
+dark:text-slate-400
+mt-1
+"
+                >
+                  System permission roles overview
+                </p>
 
               </div>
 
-              <Button
+              <div className="flex items-center gap-3">
 
-                onClick={() => {
-                  setCreateOpen(true);
-                  setForm({
-                    code: '',
-                    name: '',
-                  });
-                }}
+                <div className="relative w-72">
 
-                disabled={loading}
+                  <Search
+                    className="
+absolute
+left-3
+top-1/2
+-translate-y-1/2
+w-4
+h-4
+text-slate-400
+"
+                  />
 
-                className="
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) =>
+                      setSearchTerm(e.target.value)
+                    }
+                    placeholder="Search roles..."
+                    className="
+pl-10
+h-11
 rounded-2xl
-h-12
-px-6
+border-slate-200
+dark:border-slate-700
+bg-white/70
+dark:bg-slate-900/50
+backdrop-blur-xl
+transition-all
+duration-300
+focus-visible:ring-2
+focus-visible:ring-yellow-500/20
+"
+                  />
+
+                </div>
+
+                <Button
+                  onClick={() => {
+                    setCreateOpen(true);
+                    setForm(INITIAL_FORM);
+                  }}
+                  className="
+h-11
+rounded-2xl
+px-5
+font-bold
+gap-2
 bg-yellow-500
 hover:bg-yellow-600
-text-white
-font-black
-shadow-xl
+shadow-lg
 shadow-yellow-500/20
 transition-all
 duration-500
-hover:scale-105
-active:scale-95
+hover:scale-[1.02]
+text-white
 "
+                >
 
-              >
+                  <Plus size={18} />
 
-                <Plus size={18} className="mr-2" />
+                  Create Role
 
-                Create Role
+                </Button>
 
-                <ArrowRight size={16} className="ml-2" />
-
-              </Button>
+              </div>
 
             </div>
 
             {/* TABLE */}
 
-            <div className="overflow-hidden">
+            <div className="p-4">
 
               {loading ? (
 
-                <TableSkeleton rows={5} />
+                <TableSkeleton rows={6} />
 
               ) : (
 
                 <DataTable
                   columns={columns}
-                  data={roles}
-                  emptyMessage="No security roles configured"
+                  data={filteredRoles}
+                  emptyMessage="No roles found"
                 />
 
               )}
@@ -809,7 +810,8 @@ active:scale-95
 
             {/* FOOTER */}
 
-            <div className="
+            <div
+              className="
 flex
 flex-col
 md:flex-row
@@ -821,28 +823,23 @@ border-t
 border-white/5
 bg-slate-50/50
 dark:bg-slate-900/20
-">
+"
+            >
 
-              <div className="
+              <div
+                className="
 text-[10px]
 font-black
 uppercase
 tracking-[0.25em]
 text-slate-500
 dark:text-slate-400
-">
+"
+              >
 
                 Showing
                 {" "}
-                {(meta.page - 1) * meta.limit + 1}
-
-                {" - "}
-
-                {Math.min(
-                  meta.page * meta.limit,
-                  meta.total
-                )}
-
+                {roles.length}
                 {" "}
                 of
                 {" "}
@@ -853,30 +850,27 @@ dark:text-slate-400
               <div className="flex items-center gap-3">
 
                 <Button
-
                   size="sm"
-
                   variant="outline"
-
                   disabled={meta.page <= 1}
-
                   onClick={() =>
-                    setPage(prev => Math.max(1, prev - 1))
+                    setPage((p) =>
+                      Math.max(1, p - 1)
+                    )
                   }
-
                   className="
 rounded-xl
 border-slate-200
 dark:border-slate-700
 "
-
                 >
 
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={14} />
 
                 </Button>
 
-                <div className="
+                <div
+                  className="
 px-4
 py-2
 rounded-xl
@@ -886,7 +880,8 @@ text-sm
 font-black
 shadow-lg
 shadow-yellow-500/20
-">
+"
+                >
 
                   {meta.page}
                   {" / "}
@@ -895,28 +890,22 @@ shadow-yellow-500/20
                 </div>
 
                 <Button
-
                   size="sm"
-
                   variant="outline"
-
                   disabled={
                     meta.page >= meta.totalPages
                   }
-
                   onClick={() =>
-                    setPage(prev => prev + 1)
+                    setPage((p) => p + 1)
                   }
-
                   className="
 rounded-xl
 border-slate-200
 dark:border-slate-700
 "
-
                 >
 
-                  <ChevronRight size={16} />
+                  <ChevronRight size={14} />
 
                 </Button>
 
@@ -935,139 +924,112 @@ dark:border-slate-700
       {/* ========================================= */}
 
       <Modal
-
         isOpen={createOpen}
-
         onClose={() => setCreateOpen(false)}
-
-        title="Initialize Security Role"
-
+        title="Create New Role"
+        size="md"
       >
 
         <form
           onSubmit={handleCreate}
-          className="space-y-6 py-4"
+          className="space-y-5"
         >
 
           <div className="space-y-2">
 
-            <Label className="
-text-[10px]
-font-black
+            <Label
+              className="
+text-[11px]
 uppercase
 tracking-[0.25em]
 text-slate-500
-flex
-items-center
-gap-2
-">
-
-              <Hash size={14} />
-
-              Access Code
-
+font-black
+"
+            >
+              Role Code
             </Label>
 
             <Input
-
+              required
+              value={form.code}
+              placeholder="e.g. STORE_MANAGER"
               className="
-h-12
+h-11
 rounded-2xl
 font-mono
 uppercase
-tracking-[0.15em]
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-yellow-500
 "
-
-              placeholder="e.g. STORE_MANAGER"
-
-              value={form.code}
-
               onChange={(e) =>
                 setForm({
                   ...form,
                   code: e.target.value
                     .toUpperCase()
-                    .replace(/\s/g, '_'),
+                    .replace(/\s/g, '_')
                 })
               }
-
-              required
-
             />
 
             <p className="text-[11px] text-slate-400">
-              Uppercase letters and underscores only
+
+              Uppercase with underscores only
+
             </p>
 
           </div>
 
           <div className="space-y-2">
 
-            <Label className="
-text-[10px]
-font-black
+            <Label
+              className="
+text-[11px]
 uppercase
 tracking-[0.25em]
 text-slate-500
-flex
-items-center
-gap-2
-">
-
-              <Lock size={14} />
-
-              Role Display Name
-
+font-black
+"
+            >
+              Display Name
             </Label>
 
             <Input
-
-              className="
-h-12
-rounded-2xl
-border-slate-200
-dark:border-slate-700
-focus-visible:ring-orange-500
-"
-
-              placeholder="e.g. Store Manager"
-
+              required
               value={form.name}
-
+              placeholder="e.g. Store Manager"
+              className="
+h-11
+rounded-2xl
+"
               onChange={(e) =>
                 setForm({
                   ...form,
-                  name: e.target.value,
+                  name: e.target.value
                 })
               }
-
-              required
-
             />
 
           </div>
 
-          <div className="flex gap-4 pt-4">
+          {/* ACTIONS */}
+
+          <div
+            className="
+flex
+justify-end
+gap-3
+pt-5
+border-t
+border-slate-200
+dark:border-slate-800
+"
+          >
 
             <Button
-
               type="button"
-
-              variant="outline"
-
-              onClick={() => setCreateOpen(false)}
-
-              className="
-flex-1
-h-12
-rounded-2xl
-"
-
-              disabled={creating}
-
+              variant="ghost"
+              className="rounded-2xl"
+              onClick={() =>
+                setCreateOpen(false)
+              }
             >
 
               Cancel
@@ -1075,28 +1037,28 @@ rounded-2xl
             </Button>
 
             <Button
-
               type="submit"
-
               disabled={creating}
-
               className="
-flex-1
-h-12
+min-w-[140px]
 rounded-2xl
 bg-yellow-500
 hover:bg-yellow-600
 text-white
-font-bold
-shadow-xl
-shadow-yellow-500/20
 "
-
             >
 
-              {creating
-                ? 'Processing...'
-                : 'Create Role'}
+              {creating ? (
+
+                <Loader2
+                  className="animate-spin"
+                />
+
+              ) : (
+
+                'Create Role'
+
+              )}
 
             </Button>
 
@@ -1107,23 +1069,16 @@ shadow-yellow-500/20
       </Modal>
 
       {/* ========================================= */}
-      {/* DELETE CONFIRM */}
+      {/* DELETE DIALOG */}
       {/* ========================================= */}
 
       <ConfirmDialog
-
         isOpen={!!deleteTarget}
-
         onClose={() => setDeleteTarget(null)}
-
         onConfirm={handleDelete}
-
-        title="Delete Security Role"
-
-        message={`Deleting "${deleteTarget?.name}" may affect users currently assigned to this authority role. Continue?`}
-
+        title="Delete Role"
+        message={`Delete role "${deleteTarget?.name}"? This may affect users assigned to this role.`}
         loading={deleting}
-
       />
 
     </DashboardLayout>

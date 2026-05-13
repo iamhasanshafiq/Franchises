@@ -1348,17 +1348,16 @@ duration-500
                                 className={`
 p-3
 rounded-2xl
-${
-  tx.type ===
-  "CREDIT"
-    ? "bg-emerald-500/10 text-emerald-500"
-    : "bg-red-500/10 text-red-500"
-}
+${tx.type ===
+                                    "CREDIT"
+                                    ? "bg-emerald-500/10 text-emerald-500"
+                                    : "bg-red-500/10 text-red-500"
+                                  }
 `}
                               >
 
                                 {tx.type ===
-                                "CREDIT" ? (
+                                  "CREDIT" ? (
                                   <ArrowUpCircle size={20} />
                                 ) : (
                                   <ArrowDownCircle size={20} />
@@ -1396,16 +1395,15 @@ dark:text-white
                               <p
                                 className={`
 font-black
-${
-  tx.type ===
-  "CREDIT"
-    ? "text-emerald-500"
-    : "text-red-500"
-}
+${tx.type ===
+                                    "CREDIT"
+                                    ? "text-emerald-500"
+                                    : "text-red-500"
+                                  }
 `}
                               >
                                 {tx.type ===
-                                "CREDIT"
+                                  "CREDIT"
                                   ? "+"
                                   : "-"}
                                 {" "}
@@ -1757,6 +1755,7 @@ rounded-2xl
 border-emerald-200
 text-emerald-500
 hover:bg-emerald-50
+hover:text-emerald-500
 "
                       onClick={() =>
                         changeStatus(
@@ -1775,6 +1774,7 @@ hover:bg-emerald-50
 rounded-2xl
 border-yellow-200
 text-yellow-500
+hover:text-yellow-500
 hover:bg-yellow-50
 "
                       onClick={() =>
@@ -1794,6 +1794,7 @@ hover:bg-yellow-50
 rounded-2xl
 border-red-200
 text-red-500
+hover:text-red-500
 hover:bg-red-50
 "
                       onClick={() =>
